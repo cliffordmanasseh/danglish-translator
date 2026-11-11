@@ -12,7 +12,10 @@ All notable changes to this project are documented here. The format follows
   conversion (`danglish fetch`).
 - Local WebSocket server and text web UI with partial translations.
 - Speech-to-speech path: energy VAD, faster-whisper Danish ASR, OPUS-MT, Piper English
-  TTS, and half-duplex microphone playback (`danglish talk`).
+  TTS, and microphone playback (`danglish talk`).
+- Parallel audio runtime with separate capture/VAD, translation, and playback threads and
+  bounded queues. `--full-duplex` keeps listening while English audio plays for isolated
+  input/output setups; half-duplex remains the default for laptop speakers.
 - CLI commands: `translate`, `repl`, `stream`, `serve`, `talk`/`mic`, `fetch`, `doctor`,
   `bench`, `version`.
 - Memory diagnostics and a benchmark that fails when peak RSS exceeds the 2 GB budget.

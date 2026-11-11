@@ -7,8 +7,9 @@ on your CPU, on your machine: no cloud, no API keys, no telemetry. Danglish is d
 for small PCs, and the whole speech-to-speech stack fits in well under 2 GB of memory.
 
 > **Status:** early but working. The text pipeline and the audio-to-audio path are both
-> implemented and tested end to end. It is a turn-based interpreter (speak, pause, hear),
-> not simultaneous interpreting.
+> implemented and tested end to end. Capture, translation, and playback run in parallel;
+> it is a turn-based interpreter (speak, pause, hear), not word-level simultaneous
+> interpreting. `--full-duplex` keeps listening while the English audio plays.
 
 ## Demo
 
@@ -21,6 +22,9 @@ uv run --no-sync danglish fetch
 
 # 3. Talk: Danish microphone in, English voice out
 uv run --no-sync danglish talk
+
+# With isolated input/output hardware (no acoustic feedback):
+uv run --no-sync danglish talk --full-duplex
 ```
 
 The first run downloads Whisper `small` (~464 MB), a Piper English voice (~63 MB), and
@@ -78,8 +82,14 @@ uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no micr
 The microphone path is segmented by a small energy VAD. When you stop speaking for
 600 ms, the utterance goes through local Whisper ASR, the sentence-aware translation
 pipeline, and a local Piper voice. English audio starts playing as soon as the turn is
-translated. The microphone is muted during playback (half-duplex), so headphones are
-recommended.
+translated.
+
+Capture/VAD, ASR→MT→TTS, and playback run on separate threads. By default the microphone
+is muted during playback (half-duplex) to avoid feedback with laptop speakers. With
+isolated audio I/O or an external echo canceller, pass `--full-duplex`: capture and
+translation continue while English audio plays, and new turns queue behind the audio that
+is currently playing. The models are still used by a single translation worker, so
+memory does not increase; on a very small CPU, concurrent work can add a little latency.
 
 The text path uses the same translation core and adds a debounced partial preview of the
 sentence currently being written.
@@ -110,6 +120,10 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
 | Full speech-to-speech | ~604 MB | **~1.0 GB** | ASR small + MT + Piper, multi-turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
+
+Full-duplex uses the same models and bounded audio queues; its memory footprint is
+unchanged. The extra cost is CPU contention with playback, which is small because
+playback itself is cheap.
 
 Measured turn latency for a 20-second Danish audio clip:
 
@@ -148,6 +162,7 @@ loading.
 
 ```text
 danglish talk                     microphone → Danish ASR → English speech (alias: mic)
+danglish talk --full-duplex       keep listening while English audio plays (isolated I/O)
 danglish talk --no-tts            microphone → Danish ASR → English text only
 danglish talk --list-devices      list audio devices
 danglish translate "text" | -f file | -        one-shot text translation
@@ -166,6 +181,7 @@ Useful overrides:
 danglish talk --asr-model small --tts-voice en_GB-cori-high
 danglish talk --min-energy 0.008 --silence-ms 500
 danglish talk --input-device 2 --output-device 3
+danglish talk --full-duplex --input-device 2 --output-device 3
 danglish talk --stats               # ASR/MT/TTS timings per turn
 danglish talk --json                # machine-readable turns, still speaks
 ```
@@ -178,13 +194,35 @@ Every option can be overridden on the command line (`--model-path`, `--compute-t
 - **It is turn-based.** The VAD waits for 600 ms of silence before cutting the utterance,
   and Whisper transcribes the whole utterance. There is no partial ASR, so very long
   monologues wait for the full segment (max 15 s).
-- **Half-duplex.** The mic is muted while English audio plays. You cannot interrupt the
-  translation mid-sentence. Headphones are recommended if the microphone is sensitive.
+- **Half-duplex by default, full-duplex available.** The mic is muted during playback by
+  default to protect laptop users. With isolated input/output, `--full-duplex` never
+  mutes: capture and ASR/MT/TTS continue while the previous English audio plays.
+  Playback is still serialized, so new translations queue behind the audio currently
+  playing. This is parallel processing, not overlapping English speech.
 - **Small-model quality.** Whisper `small` makes occasional Danish ASR mistakes, and
   OPUS-MT is a compact model. Proper names, numbers, and domain terms are the usual
   failure points. Check the printed Danish transcript when something sounds wrong.
 - **One speaker, one stream.** The design is a local interpreter, not a multi-user
   meeting transcriber.
+
+### Full-duplex with isolated audio
+
+If your interface keeps the microphone and speaker signals separate, use:
+
+```bash
+danglish talk --full-duplex --input-device 2 --output-device 3 --stats
+```
+
+The capture callback keeps feeding the VAD while playback runs. A new Danish turn can be
+recognized, translated, and synthesized while the previous English sentence is still
+playing; its audio is queued in order. The translation worker is intentionally
+single-threaded so turns do not reorder and only one copy of each model is loaded.
+
+This is not yet word-level simultaneous interpreting: Whisper still waits for the VAD to
+close an utterance, so 600 ms of silence (or a 15 s maximum segment) is required before a
+new translation starts. Streaming ASR with partial hypotheses is the next latency step;
+see the roadmap. On a 2–4 core machine, overlapping ASR with playback can add a little
+latency, but memory stays flat because the models are shared.
 
 ## Repository layout
 
@@ -198,7 +236,8 @@ src/danglish/
   audio/
     vad.py             energy VAD
     asr.py             faster-whisper wrapper
-    mic.py             microphone capture, half-duplex playback, talk loop
+    runtime.py         parallel capture / translation / playback runtime
+    mic.py             microphone capture, playback, talk loop
     util.py            resampling and WAV helpers
   server/              FastAPI WebSocket server + text UI
 scripts/
@@ -230,9 +269,11 @@ if you switch voices, check that voice's license.
 - [x] CT2 int8 backend and model conversion
 - [x] WebSocket text demo
 - [x] Local microphone → English speech pipeline (ASR + MT + TTS)
+- [x] Parallel capture, translation, and playback
+- [x] Full-duplex mode for isolated audio I/O
 - [ ] Browser microphone + server-side audio-to-audio
 - [ ] Streaming/partial ASR for lower latency
-- [ ] Echo cancellation and full-duplex interruption
+- [ ] Acoustic echo cancellation for shared speaker/microphone setups
 - [ ] Quality evaluation harness (FLORES-200 / CoRal samples)
 - [ ] Prequantized packaged ASR/TTS artifacts for faster first run
 - [ ] Optional higher-quality English voices

@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-import queue
 import sys
-import threading
-import time
 from typing import Any
 
 import numpy as np
@@ -16,9 +13,10 @@ from ..backends.base import TranslatorBackend
 from ..config import AppConfig
 from ..errors import DanglishError, DependencyMissingError
 from ..memory import current_rss_mb
-from ..speech import SpeechTranslator
+from ..speech import SpeechTranslator, SpeechUtterance
 from ..tts import DEFAULT_VOICE, PiperTTS
 from .asr import WhisperASR
+from .runtime import TalkRuntime
 from .util import resample_audio
 from .vad import EnergyVAD
 
@@ -35,6 +33,7 @@ def run_talk(
     asr_compute_type: str = "int8",
     tts_voice: str | None = None,
     enable_tts: bool = True,
+    full_duplex: bool = False,
     input_device: int | None = None,
     output_device: int | None = None,
     min_energy: float = 0.006,
@@ -86,24 +85,6 @@ def run_talk(
         min_energy=min_energy,
     )
 
-    audio_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=64)
-    muted = threading.Event()
-
-    def callback(indata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
-        if status:
-            print(f"audio: {status}", file=sys.stderr)
-        if muted.is_set():
-            return
-        with contextlib.suppress(queue.Full):
-            audio_queue.put_nowait(indata[:, 0].copy())
-
-    def drain_queue() -> None:
-        while True:
-            try:
-                audio_queue.get_nowait()
-            except queue.Empty:
-                return
-
     def play(audio: np.ndarray, sample_rate: int) -> None:
         try:
             sd.play(
@@ -127,11 +108,7 @@ def run_talk(
                 blocking=True,
             )
 
-    def handle_utterance(audio: np.ndarray) -> None:
-        result = speech.translate_utterance(audio, sample_rate=_SAMPLE_RATE)
-        if result is None:
-            return
-
+    def print_result(result: SpeechUtterance) -> None:
         if as_json:
             print(
                 json.dumps(
@@ -161,35 +138,6 @@ def run_talk(
                 print(f"en  {segment.target}")
             print(flush=True)
 
-        playable = [
-            segment
-            for segment in result.segments
-            if segment.audio is not None
-            and segment.audio.size > 0
-            and segment.sample_rate is not None
-            and segment.tts_error is None
-        ]
-        for segment in result.segments:
-            if segment.tts_error:
-                print(f"tts: {segment.tts_error}", file=sys.stderr)
-
-        if playable:
-            muted.set()
-            drain_queue()
-            try:
-                for segment in playable:
-                    try:
-                        play(segment.audio, segment.sample_rate)  # type: ignore[arg-type]
-                    except Exception as exc:
-                        print(f"playback failed: {exc}", file=sys.stderr)
-                        break
-                    time.sleep(0.08)
-                time.sleep(0.15)
-            finally:
-                drain_queue()
-                vad.reset()
-                muted.clear()
-
         if stats:
             print(
                 f"    asr {result.asr_seconds:.2f}s  "
@@ -200,14 +148,40 @@ def run_talk(
                 flush=True,
             )
 
+    def print_error(message: str) -> None:
+        print(f"talk: {message}", file=sys.stderr, flush=True)
+
+    runtime = TalkRuntime(
+        speech,
+        play,
+        vad,
+        full_duplex=full_duplex,
+        on_utterance=print_result,
+        on_error=print_error,
+        sample_rate=_SAMPLE_RATE,
+    )
+    runtime.start()
+
+    def callback(indata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
+        if status:
+            print(f"audio: {status}", file=sys.stderr)
+        runtime.capture(indata[:, 0].copy())
+
     print(
         f"ready — speech stack RSS {current_rss_mb():,.0f} MB",
         file=sys.stderr,
         flush=True,
     )
-    if enable_tts:
+    if full_duplex:
         print(
-            "headphones are recommended: the microphone is muted while English audio plays.",
+            "full-duplex: listening continues while English audio plays. "
+            "Use isolated input/output or an external echo canceller.",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "half-duplex: the microphone is muted while English audio plays. "
+            "Use --full-duplex with isolated I/O to keep listening.",
             file=sys.stderr,
         )
     print("listening — speak Danish, Ctrl-C to stop.", file=sys.stderr, flush=True)
@@ -221,10 +195,7 @@ def run_talk(
             device=input_device,
             callback=callback,
         ):
-            while True:
-                frame = audio_queue.get()
-                for utterance in vad.push(frame):
-                    handle_utterance(utterance)
+            runtime.run_vad_loop()
     except KeyboardInterrupt:
         pass
     except (sd.PortAudioError, ValueError) as exc:
@@ -232,6 +203,10 @@ def run_talk(
             f"could not open the audio device: {exc}. Try `danglish talk --list-devices`."
         ) from exc
     finally:
+        runtime.stop()
+        with contextlib.suppress(Exception):
+            sd.stop()
+        runtime.join()
         speech.close()
         print("\nstopped.", file=sys.stderr)
 

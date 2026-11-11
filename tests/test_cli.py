@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from danglish.cli import main
+from danglish.cli import build_parser, main
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -125,6 +125,14 @@ def test_talk_requires_a_model(tmp_path: Path, capsys: pytest.CaptureFixture[str
 def test_mic_alias_requires_a_model(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["mic", "--model-path", str(tmp_path)]) == 1
     assert "model not found" in capsys.readouterr().err
+
+
+def test_talk_full_duplex_flag() -> None:
+    args = build_parser().parse_args(["talk", "--full-duplex"])
+    assert args.full_duplex is True
+
+    default_args = build_parser().parse_args(["talk"])
+    assert default_args.full_duplex is False
 
 
 def test_bad_arguments_exit(capsys: pytest.CaptureFixture[str]) -> None:

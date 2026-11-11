@@ -118,6 +118,12 @@ The ASR transcript degrades on the short segments too (“Soen”, “Brua Danie
 propagates into the translation. Use natural pauses and, if your microphone is noisy,
 raise `--silence-ms` rather than cutting aggressively.
 
+The parallel runtime (`--full-duplex`) does not load extra models: capture, translation,
+and playback overlap, but the same ASR/MT/TTS instances are shared and audio queues are
+bounded. Peak RSS is therefore the same ~1.0 GB; the trade-off is CPU contention, which
+is modest because playback is cheap. Re-measure on the target machine if you run ASR and
+TTS concurrently on a 2-core CPU.
+
 ### Turning the numbers into perceived latency
 
 For a 20-second utterance, processing takes ~1.8–2.0 seconds. For a short 3–5 second

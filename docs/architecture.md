@@ -16,8 +16,9 @@ Hard constraints:
 4. **Boring, inspectable pieces.** Each stage has a narrow interface and can be tested
    without a microphone.
 
-Non-goals for this version: simultaneous interpreting, multi-speaker diarization,
-document-level context, and cloud-scale throughput.
+Non-goals for this version: word-level simultaneous interpreting, multi-speaker
+diarization, document-level context, and cloud-scale throughput. Parallel turn processing
+(capture, ASR/MT/TTS, and playback) is supported.
 
 ## Speech-to-speech data flow
 
@@ -49,7 +50,7 @@ document-level context, and cloud-scale throughput.
        │  float32 waveform
        ▼
 ┌──────────────┐
-│ speaker      │  microphone is muted while audio plays
+│ speaker      │  playback thread; capture can continue (full-duplex)
 └──────────────┘
 ```
 
@@ -109,17 +110,45 @@ regression test. Keep it in mind when adding another Marian model.
 Translation inputs longer than 500 source tokens are split recursively at word
 boundaries as a safety net. Normal streaming input is already sentence-sized.
 
-## Concurrency and the half-duplex rule
+## Concurrency: parallel capture, translation, and playback
 
-The `talk` path is single-threaded:
+The `talk` path has four concurrent contexts:
 
-- PortAudio calls the capture callback on its own thread; frames go into a bounded queue.
-- The main loop runs VAD, ASR, MT, and TTS sequentially.
-- While English audio is playing, a `muted` event makes the capture callback drop frames.
-  The queue is drained and the VAD is reset after playback. This prevents the microphone
-  from transcribing the translator's own voice.
-- The user cannot speak over the translation. This is intentional for a first version;
-  echo cancellation and full-duplex barge-in are roadmap items.
+1. **PortAudio callback** — copies 30 ms frames into a bounded raw-frame queue. It never
+   runs a model and never blocks.
+2. **VAD loop (main thread)** — consumes frames, segments utterances, and submits them to
+   a bounded utterance queue. This loop stays responsive while models are working, so
+   capture and VAD continue during ASR/MT/TTS and during playback.
+3. **Translation worker** — one thread consumes utterances, runs ASR → MT → TTS, prints
+   captions, and queues synthesized audio. A single worker preserves turn order and avoids
+   loading a second copy of any model.
+4. **Playback thread** — consumes audio segments and plays them sequentially, in the same
+   order they were translated.
+
+Queues are bounded (512 frames, 16 utterances, 64 audio segments) so a slow consumer
+cannot grow memory without bound; the callback drops frames rather than blocking audio.
+
+### Half-duplex and full-duplex
+
+A `PlaybackGate` tracks the number of audio segments registered for playback. In the
+default **half-duplex** mode:
+
+- the capture gate closes while any English audio is pending or playing;
+- capture callbacks drop frames during that window;
+- when the last segment finishes, the VAD loop drains stale frames and resets the VAD, so
+  the translator does not transcribe its own speaker output.
+
+With `--full-duplex`:
+
+- capture never pauses for playback;
+- the VAD state is not reset when playback ends;
+- a new utterance can be recognized and translated while the previous English audio is
+  still playing, and its audio queues behind the current audio.
+
+Full-duplex is intended for isolated input/output hardware or an external echo canceller.
+It is not word-level simultaneous interpreting: the VAD still waits for 600 ms of silence
+(or 15 s maximum) and Whisper transcribes whole utterances. Streaming ASR with partial
+hypotheses is the next latency step.
 
 The web server is asynchronous around synchronous CPU work: translation calls run in
 `asyncio.to_thread`, and each WebSocket session has a lock so its pipeline mutations are
@@ -133,7 +162,8 @@ Measured on the development machine:
 - text pipeline: **147 MB** peak;
 - text + FastAPI server: **185 MB** peak;
 - speech stack (ASR small + MT + Piper): **~1.0 GB** peak, stabilizing around 925 MB RSS
-  after several turns.
+  after several turns. Full-duplex keeps the same models and bounded queues, so its
+  footprint is unchanged; only CPU contention changes.
 
 The speech peak includes CTranslate2's temporary allocation while quantizing the Whisper
 weights on load (~730 MB), growing to ~1,024 MB as ASR/TTS buffers are exercised. The
@@ -154,6 +184,9 @@ Memory reduction levers:
 - TTS failure → the English text is still printed; the turn continues.
 - Empty ASR result → the turn is skipped.
 - Audio device failure → a clean error with a `--list-devices` hint.
+- Worker exception → logged and the session continues with the next utterance.
+- Playback failure → logged; the pending-audio count is decremented and the session
+  continues.
 - A backend that returns the wrong number of translations raises `BackendError` rather
   than silently misaligning events.
 

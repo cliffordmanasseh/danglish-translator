@@ -314,6 +314,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             asr_compute_type=args.asr_compute_type,
             tts_voice=args.tts_voice,
             enable_tts=not args.no_tts,
+            full_duplex=args.full_duplex,
             input_device=args.input_device,
             output_device=args.output_device,
             min_energy=args.min_energy,
@@ -488,7 +489,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="speech-to-speech: Danish microphone → English voice",
         description=(
             "Live Danish speech → English speech. Uses local Whisper ASR, OPUS-MT "
-            "translation, and a local Piper voice. Headphones are recommended."
+            "translation, and a local Piper voice. Capture, translation, and playback "
+            "run in parallel; use --full-duplex with isolated audio I/O."
         ),
         epilog=(
             "Recommended Piper voices: en_GB-alba-medium (63 MB, CC BY 4.0), "
@@ -505,6 +507,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     talk.add_argument(
         "--no-tts", action="store_true", help="print the English translation instead of speaking it"
+    )
+    talk.add_argument(
+        "--full-duplex",
+        action="store_true",
+        help=(
+            "keep listening while English audio plays; use isolated input/output "
+            "or an external echo canceller"
+        ),
     )
     talk.add_argument("--language", default="da", help="source language code (default: da)")
     talk.add_argument("--input-device", type=int, help="sounddevice input device index")
