@@ -56,9 +56,15 @@ function backendCommand() {
   return { command: python, prefix: ["-m", "danglish"] };
 }
 
+function modelsRoot() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "models")
+    : path.join(repoRoot, "desktop", "resources", "models");
+}
+
 function modelPaths(settings) {
-  const bundled = path.join(process.resourcesPath, "models");
-  const useBundled = app.isPackaged && fs.existsSync(bundled);
+  const bundled = modelsRoot();
+  const useBundled = fs.existsSync(path.join(bundled, "opus-mt-da-en-int8"));
   const devModels = path.join(repoRoot, "models");
 
   const mt = useBundled
@@ -378,16 +384,18 @@ function legalPath() {
 }
 
 function bundledVoiceNames() {
-  if (!app.isPackaged) return ["en_GB-alba-medium", "en_GB-cori-high"];
-  const directory = path.join(process.resourcesPath, "models", "voices");
+  const directory = path.join(modelsRoot(), "voices");
   try {
-    return fs
+    const voices = fs
       .readdirSync(directory)
       .filter((name) => name.endsWith(".onnx"))
       .map((name) => name.slice(0, -".onnx".length));
+    if (voices.length) return voices;
   } catch (_) {
-    return [];
+    /* fall through */
   }
+  if (!app.isPackaged) return ["en_GB-alba-medium", "en_GB-cori-high"];
+  return [];
 }
 
 function createWindow() {

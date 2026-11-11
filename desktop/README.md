@@ -35,6 +35,16 @@ The UI starts the backend only when you click **Start listening**. Models load a
 point. In development, Whisper and the Piper voice are downloaded on first use; the MT
 model must already exist from `danglish fetch`.
 
+If you already built the model bundle (601 MB), the dev app uses it automatically:
+
+```text
+desktop/resources/models/
+```
+
+Model files are platform-independent. To test on a Windows or macOS machine without
+downloading anything, copy that directory from the Linux build into the same location on
+the other machine. `npm start` and `npm run dist` both reuse it.
+
 ## Build a distributable
 
 ```bash

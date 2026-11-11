@@ -92,6 +92,10 @@ so Windows and macOS installers must be built on those operating systems (or wit
 `Desktop builds` GitHub Actions workflow). The builds are unsigned by default; macOS will
 need right-click → Open until signing/notarization is added.
 
+The model files are platform-independent. Copy `desktop/resources/models/` (601 MB) from
+this machine to a Windows/macOS checkout to test without re-downloading the models; the
+desktop app and the installer build both reuse that directory.
+
 ### Text mode and web demo
 
 The translator core also runs without audio:
