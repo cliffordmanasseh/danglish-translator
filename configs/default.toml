@@ -1,0 +1,28 @@
+# Danglish configuration.
+#
+# Copy this file to ./danglish.toml to make it the default, or pass
+# `--config configs/default.toml` to a command.
+
+[model]
+path = "models/opus-mt-da-en-int8"
+device = "cpu"
+compute_type = "int8"
+intra_threads = 0      # 0 = auto, capped at 4
+inter_threads = 1
+beam_size = 2          # 1 is faster, 2 is a good quality/latency trade-off
+max_decoding_length = 256
+
+[stream]
+min_partial_chars = 12
+partial_debounce_ms = 200
+max_pending_chars = 4000
+
+[server]
+host = "127.0.0.1"
+port = 8765
+
+[tts]
+# Piper voice used by `danglish talk` and downloaded on first use.
+# en_GB-alba-medium: 63 MB, CC BY 4.0.
+# en_GB-cori-high: 114 MB, public domain.
+voice = "en_GB-alba-medium"

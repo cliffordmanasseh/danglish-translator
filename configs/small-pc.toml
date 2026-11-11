@@ -1,0 +1,23 @@
+# A conservative profile for a small, quiet PC (2–4 cores, 2 GB RAM).
+# Pass it with: danglish --config configs/small-pc.toml ...  (or copy to danglish.toml)
+
+[model]
+path = "models/opus-mt-da-en-int8"
+device = "cpu"
+compute_type = "int8"
+intra_threads = 2
+inter_threads = 1
+beam_size = 1
+max_decoding_length = 256
+
+[stream]
+min_partial_chars = 16
+partial_debounce_ms = 300
+max_pending_chars = 3000
+
+[server]
+host = "127.0.0.1"
+port = 8765
+
+[tts]
+voice = "en_GB-alba-medium"

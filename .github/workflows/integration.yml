@@ -1,0 +1,38 @@
+name: Integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  models:
+    name: Model + speech integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install
+        run: uv sync --python 3.12 --extra dev --extra speech --extra convert
+
+      - name: Fetch and convert the translation model
+        run: uv run --no-sync danglish fetch
+
+      - name: Integration tests
+        run: uv run --no-sync pytest -m integration -q
+
+      - name: Benchmark under the 2 GB budget
+        run: uv run --no-sync danglish bench --repeats 2

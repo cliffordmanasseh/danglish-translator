@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Local models and voices (large, downloaded on demand)
+models/
+*.onnx
+*.onnx.json
+*.safetensors
+
+# Local runtime output and caches
+*.wav
+*.mp3
+*.log
+.cache/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp

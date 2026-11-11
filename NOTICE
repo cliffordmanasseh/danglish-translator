@@ -1,0 +1,58 @@
+Danglish
+Copyright 2026 Danglish contributors
+
+Danglish source code is licensed under the Apache License 2.0 (see LICENSE).
+The project downloads and uses the following third-party models and runtimes at
+runtime. They are not bundled in this repository and remain subject to their own
+licenses.
+
+DEFAULT MODELS AND VOICES
+-------------------------
+Helsinki-NLP/opus-mt-da-en
+  Danish-to-English Marian translation model
+  License: Apache-2.0
+  https://huggingface.co/Helsinki-NLP/opus-mt-da-en
+
+OpenAI Whisper "small"
+  Speech recognition model weights
+  License: MIT
+  https://github.com/openai/whisper
+
+Piper voice en_GB-alba-medium
+  English speech synthesis voice from rhasspy/piper-voices
+  License: CC BY 4.0
+  Dataset: https://datashare.ed.ac.uk/handle/10283/3270
+  Voice repository: https://huggingface.co/rhasspy/piper-voices
+  If you redistribute this voice, retain attribution and indicate any changes.
+
+OPTIONAL RUNTIME AND PYTHON DEPENDENCIES
+----------------------------------------
+CTranslate2                                  MIT
+SentencePiece                               Apache-2.0
+faster-whisper                              MIT
+piper-tts                                   GPL-3.0-or-later (optional)
+ONNX Runtime                                MIT
+PyAV (av)                                   BSD-3-Clause
+sounddevice                                 MIT
+huggingface-hub                             Apache-2.0
+NumPy                                       BSD-3-Clause
+FastAPI                                     MIT
+Uvicorn                                     BSD-3-Clause
+PyTorch                                     BSD-3-Clause (convert extra only)
+Transformers                                Apache-2.0  (convert extra only)
+
+LICENSING NOTES
+---------------
+piper-tts is an optional speech-output dependency and is licensed under the GNU
+General Public License v3.0 or later. The Apache-2.0 core (text translation, server,
+ASR, and the interfaces in this repository) does not require it. If you distribute a
+combined environment or binary that includes piper-tts, comply with the GPL terms for
+that component. Users who need a permissively licensed speech pipeline should replace
+the TTS stage or install the components separately after reviewing their obligations.
+
+The `speech` extra installs piper-tts. The `tts` extra installs only piper-tts; the
+`asr` extra installs faster-whisper and sounddevice. Model and voice licenses are
+independent of the Python package licenses.
+
+This notice is informational and is not legal advice. Verify the licenses of any model,
+voice, or dependency you redistribute.

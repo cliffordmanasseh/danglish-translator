@@ -1,0 +1,116 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "danglish"
+version = "0.1.0"
+description = "Local, real-time Danish-to-English speech-to-speech translation under 2 GB of RAM."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+authors = [{ name = "Danglish contributors" }]
+keywords = [
+  "danish",
+  "danish-english",
+  "translation",
+  "speech-to-speech",
+  "speech-recognition",
+  "text-to-speech",
+  "streaming",
+  "ctranslate2",
+  "opus-mt",
+  "whisper",
+  "piper",
+  "offline",
+  "local-first",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+  "ctranslate2>=4.5,<5",
+  "huggingface-hub>=0.24",
+  "numpy>=1.26",
+  "sentencepiece>=0.2,<0.3",
+  "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+server = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+]
+asr = [
+  "faster-whisper>=1.0",
+  "sounddevice>=0.4.6",
+]
+# Optional speech output. piper-tts is GPL-3.0-or-later; see NOTICE.
+tts = [
+  "piper-tts>=1.5,<2",
+]
+speech = [
+  "faster-whisper>=1.0",
+  "piper-tts>=1.5,<2",
+  "sounddevice>=0.4.6",
+]
+convert = [
+  "torch>=2.2",
+  "transformers>=4.40,<5",
+]
+dev = [
+  "fastapi>=0.110",
+  "httpx>=0.27",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.6",
+  "uvicorn>=0.29",
+]
+
+[project.scripts]
+danglish = "danglish.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/danglish"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "integration: needs a converted model on disk",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.coverage.run]
+source = ["danglish"]
+branch = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
