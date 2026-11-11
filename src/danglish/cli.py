@@ -12,6 +12,7 @@ from . import __version__
 from .backends import create_backend
 from .bench import run_benchmark
 from .config import COMPUTE_TYPES, AppConfig, load_config
+from .context import get_profile, list_profiles, profile_names
 from .doctor import build_checks, overall_status, render_checks
 from .errors import DanglishError
 from .memory import DEFAULT_BUDGET_MB, current_rss_mb
@@ -25,6 +26,18 @@ from .models import (
 from .pipeline import StreamingPipeline, translate_document
 
 MOCK_NOTE = "mock backend: translations are fake (word order reversed)"
+
+
+def _add_context_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--context",
+        choices=profile_names(),
+        default="general",
+        help=(
+            "translation context profile; 'sermon' prefers church terminology "
+            "(post-processing, not model instructions)"
+        ),
+    )
 
 
 def _add_model_options(parser: argparse.ArgumentParser, *, mock: bool = True) -> None:
@@ -123,7 +136,7 @@ def cmd_translate(args: argparse.Namespace) -> int:
     _require_model(config, mock=args.mock)
     backend = create_backend(config, mock=args.mock)
     try:
-        translation = translate_document(backend, text)
+        translation = translate_document(backend, text, context=get_profile(args.context))
     finally:
         backend.close()
 
@@ -167,6 +180,7 @@ def cmd_repl(args: argparse.Namespace) -> int:
         backend,
         min_partial_chars=config.stream.min_partial_chars,
         max_pending_chars=config.stream.max_pending_chars,
+        context=get_profile(args.context),
     )
     try:
         if sys.stdin.isatty():
@@ -217,6 +231,7 @@ def cmd_stream(args: argparse.Namespace) -> int:
         backend,
         min_partial_chars=config.stream.min_partial_chars,
         max_pending_chars=config.stream.max_pending_chars,
+        context=get_profile(args.context),
     )
     partial_visible = False
     last_preview = 0.0
@@ -278,7 +293,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
             '  pip: pip install "danglish[server]"'
         ) from exc
 
-    run_server(config, mock=args.mock)
+    run_server(config, mock=args.mock, context=get_profile(args.context))
     return 0
 
 
@@ -326,6 +341,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             min_energy=args.min_energy,
             silence_ms=args.silence_ms,
             language=args.language,
+            context=get_profile(args.context),
             as_json=args.json,
             stats=args.stats,
         )
@@ -482,6 +498,82 @@ def cmd_version(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_devices(args: argparse.Namespace) -> int:
+    try:
+        import sounddevice as sd
+    except ImportError as exc:
+        raise DanglishError(
+            "audio device discovery needs sounddevice; install `danglish[speech]`"
+        ) from exc
+
+    from .audio.device import resolve_device
+
+    try:
+        default_input = resolve_device(sd, None, "input")
+        default_output = resolve_device(sd, None, "output")
+    except ValueError:
+        default_input = None
+        default_output = None
+
+    devices = []
+    for index, info in enumerate(sd.query_devices()):
+        devices.append(
+            {
+                "index": index,
+                "name": info["name"],
+                "hostapi": sd.query_hostapis(info["hostapi"])["name"],
+                "max_input_channels": int(info["max_input_channels"]),
+                "max_output_channels": int(info["max_output_channels"]),
+                "default_samplerate": int(info["default_samplerate"]),
+                "default_input": index == default_input,
+                "default_output": index == default_output,
+            }
+        )
+
+    payload = {
+        "input_default": default_input,
+        "output_default": default_output,
+        "devices": devices,
+    }
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0
+
+    print(f"default input:  {default_input}")
+    print(f"default output: {default_output}")
+    for device in devices:
+        marker = ""
+        if device["default_input"]:
+            marker += "IN "
+        if device["default_output"]:
+            marker += "OUT"
+        print(
+            f"{device['index']:>3} {marker:<3} {device['name']} "
+            f"({device['max_input_channels']} in, {device['max_output_channels']} out, "
+            f"{device['default_samplerate']} Hz, {device['hostapi']})"
+        )
+    return 0
+
+
+def cmd_contexts(args: argparse.Namespace) -> int:
+    rows = [
+        {
+            "name": profile.name,
+            "label": profile.label,
+            "description": profile.description,
+            "glossary_entries": len(profile.glossary),
+        }
+        for profile in list_profiles()
+    ]
+    if args.json:
+        print(json.dumps(rows, ensure_ascii=False))
+    else:
+        for row in rows:
+            print(f"{row['name']:<10} {row['label']}")
+            print(f"           {row['description']}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="danglish",
@@ -497,6 +589,7 @@ def build_parser() -> argparse.ArgumentParser:
     translate.add_argument("-f", "--file", type=Path, metavar="FILE", help="read input from FILE")
     translate.add_argument("--json", action="store_true", help="emit JSON")
     _add_model_options(translate)
+    _add_context_option(translate)
     translate.set_defaults(func=cmd_translate)
 
     repl = subparsers.add_parser(
@@ -504,6 +597,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     repl.add_argument("--json", action="store_true", help="emit JSON lines")
     _add_model_options(repl)
+    _add_context_option(repl)
     repl.set_defaults(func=cmd_repl)
 
     stream = subparsers.add_parser(
@@ -527,6 +621,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stream.add_argument("--json", action="store_true", help="emit final events as JSON lines")
     _add_model_options(stream)
+    _add_context_option(stream)
     stream.set_defaults(func=cmd_stream)
 
     serve = subparsers.add_parser(
@@ -535,6 +630,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", help="bind address (default: 127.0.0.1)")
     serve.add_argument("--port", type=int, help="port (default: 8765)")
     _add_model_options(serve)
+    _add_context_option(serve)
     serve.set_defaults(func=cmd_serve)
 
     talk = subparsers.add_parser(
@@ -611,6 +707,7 @@ def build_parser() -> argparse.ArgumentParser:
     talk.add_argument("--stats", action="store_true", help="print ASR/MT/TTS timings per turn")
     talk.add_argument("--json", action="store_true", help="emit JSON lines")
     _add_model_options(talk)
+    _add_context_option(talk)
     talk.set_defaults(func=cmd_talk)
 
     audio_check = subparsers.add_parser(
@@ -684,6 +781,22 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--show-samples", action="store_true", help="print every translation")
     _add_model_options(bench)
     bench.set_defaults(func=cmd_bench)
+
+    devices = subparsers.add_parser(
+        "devices",
+        help="list audio devices for the UI",
+        description="List audio devices and the resolved default input/output.",
+    )
+    devices.add_argument("--json", action="store_true", help="emit JSON")
+    devices.set_defaults(func=cmd_devices)
+
+    contexts = subparsers.add_parser(
+        "contexts",
+        help="list translation context profiles",
+        description="List the built-in context/terminology profiles.",
+    )
+    contexts.add_argument("--json", action="store_true", help="emit JSON")
+    contexts.set_defaults(func=cmd_contexts)
 
     version = subparsers.add_parser("version", help="print the version")
     version.set_defaults(func=cmd_version)

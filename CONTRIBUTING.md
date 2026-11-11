@@ -57,10 +57,43 @@ Use a mono 16-bit PCM WAV. The script uses the same ASR → MT → TTS path as `
 Please do not commit copyrighted audio; use a short clip you have the right to use, or
 synthesize one.
 
+## Desktop app
+
+The Electron UI lives in `desktop/`. It is a thin shell around the Python CLI:
+
+```bash
+cd desktop
+npm install
+npm start                 # uses ../.venv/bin/python (or ..\.venv\Scripts\python.exe)
+```
+
+Set `DANGLISH_PYTHON` to use a different interpreter. The UI starts the backend only when
+the user clicks Start; the backend writes JSON events to stdout and logs to stderr.
+
+To build an installer:
+
+```bash
+cd ..
+uv sync --extra speech --extra convert --extra build
+cd desktop
+npm run dist
+```
+
+This builds the PyInstaller sidecar, bundles models into `resources/models/`, and runs
+electron-builder. Generated models, the sidecar, `node_modules`, and `release/` are ignored.
+PyInstaller and electron-builder must run on the target OS; use the `Desktop builds`
+workflow for Windows/macOS artifacts. Unsigned macOS builds need right-click → Open during
+testing.
+
+When changing the backend interface, check `desktop/main.js`'s argument construction and
+the JSON shape consumed by `desktop/renderer/app.js`. When adding a model, update
+`scripts/bundle_models.py`, `NOTICE`, and the desktop resource paths.
+
 ## Performance and memory rules
 
 - The hard target is **2 GB peak RSS for the full speech stack**; the current measured
-  peak is ~0.9 GB. New features should leave meaningful headroom.
+  peak is ~1.0 GB. The Electron shell adds ~0.6 GB across Chromium processes, so a
+  desktop peak approaches ~1.6 GB. New features should leave meaningful headroom.
 - Do not add torch, transformers, or other heavy packages to the core dependencies.
   They belong in optional extras.
 - Report `danglish bench` output and, for audio changes, the RSS/peak and ASR/MT/TTS

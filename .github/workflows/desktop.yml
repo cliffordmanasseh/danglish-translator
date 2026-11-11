@@ -1,0 +1,94 @@
+name: Desktop builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - name: windows-x64
+            os: windows-latest
+            platform: win
+            arch: x64
+          - name: macos-arm64
+            os: macos-latest
+            platform: mac
+            arch: arm64
+          - name: macos-x64
+            os: macos-13
+            platform: mac
+            arch: x64
+    env:
+      HF_HOME: ${{ github.workspace }}/.hf-cache
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Linux audio library
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - uses: actions/cache@v4
+        with:
+          path: .hf-cache
+          key: hf-${{ runner.os }}-${{ hashFiles('scripts/bundle_models.py') }}
+
+      - name: Install Python dependencies
+        run: uv sync --python 3.12 --extra dev --extra speech --extra convert --extra build
+
+      - name: Bundle models
+        run: uv run --no-sync python scripts/bundle_models.py --output desktop/resources/models
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Python sidecar
+        working-directory: desktop
+        run: npm run backend:build
+
+      - name: Smoke-test packaged sidecar
+        run: |
+          node -e "const {spawnSync}=require('child_process'); const fs=require('fs'); const p='desktop/resources/backend/danglish-backend/danglish-backend'+(process.platform==='win32'?'.exe':''); if(!fs.existsSync(p)) {console.error('missing '+p); process.exit(1)} const r=spawnSync(p,['translate','--mock','Hej'],{encoding:'utf8'}); console.log(r.stdout.trim()); if(r.stderr) console.error(r.stderr.trim()); process.exit(r.status ?? 1)"
+
+      - name: Build installer
+        working-directory: desktop
+        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Danglish-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+            desktop/release/*.exe
+            desktop/release/*.dmg
+            desktop/release/*.zip

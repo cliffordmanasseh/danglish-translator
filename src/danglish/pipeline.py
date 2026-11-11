@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .backends.base import TranslatorBackend
+from .context import ContextProfile
 from .errors import BackendError
 from .segmenter import SentenceSegmenter
 
@@ -49,8 +50,10 @@ class StreamingPipeline:
         *,
         min_partial_chars: int = 12,
         max_pending_chars: int = 4000,
+        context: ContextProfile | None = None,
     ) -> None:
         self._backend = backend
+        self._context = context
         self._segmenter = SentenceSegmenter()
         self._min_partial_chars = min_partial_chars
         self._max_pending_chars = max_pending_chars
@@ -100,6 +103,8 @@ class StreamingPipeline:
 
         started = time.perf_counter()
         target = self._backend.translate([source])[0]
+        if self._context is not None:
+            target = self._context.apply(source, target)
         latency_ms = (time.perf_counter() - started) * 1000.0
         self._last_partial = source
         return StreamEvent(
@@ -130,6 +135,8 @@ class StreamingPipeline:
 
         events: list[StreamEvent] = []
         for source, target in zip(segments, targets, strict=True):
+            if self._context is not None:
+                target = self._context.apply(source, target)
             events.append(
                 StreamEvent(
                     "final",
@@ -148,6 +155,7 @@ def translate_document(
     text: str,
     *,
     batch_size: int = 8,
+    context: ContextProfile | None = None,
 ) -> str:
     """Translate a whole document while preserving paragraph breaks.
 
@@ -174,7 +182,10 @@ def translate_document(
 
         translated: list[str] = []
         for start in range(0, len(sentences), batch_size):
-            translated.extend(backend.translate(sentences[start : start + batch_size]))
+            batch = sentences[start : start + batch_size]
+            targets = backend.translate(batch)
+            for source, target in zip(batch, targets, strict=True):
+                translated.append(context.apply(source, target) if context is not None else target)
 
         text_out = " ".join(part for part in translated if part).strip()
         if text_out:

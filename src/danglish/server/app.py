@@ -16,6 +16,7 @@ from .. import __version__
 from ..backends import create_backend
 from ..backends.base import TranslatorBackend
 from ..config import AppConfig, load_config
+from ..context import ContextProfile, get_profile
 from ..memory import current_rss_mb
 from ..pipeline import StreamingPipeline
 
@@ -148,9 +149,11 @@ def create_app(
     *,
     backend: TranslatorBackend | None = None,
     mock: bool = False,
+    context: ContextProfile | str = "general",
 ) -> FastAPI:
     cfg = config or load_config()
     cfg.validate()
+    context_profile = get_profile(context) if isinstance(context, str) else context
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -173,6 +176,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.config = cfg
+    app.state.context = context_profile
     app.state.mock = mock or (backend is not None and getattr(backend, "name", "") == "mock")
 
     @app.get("/", include_in_schema=False)
@@ -193,6 +197,7 @@ def create_app(
             "mock": bool(app.state.mock),
             "model": "mock" if app.state.mock else str(cfg.model.path),
             "compute_type": cfg.model.compute_type,
+            "context": app.state.context.name,
             "rss_mb": round(current_rss_mb(), 1),
         }
 
@@ -203,11 +208,13 @@ def create_app(
             app.state.backend,
             min_partial_chars=cfg.stream.min_partial_chars,
             max_pending_chars=cfg.stream.max_pending_chars,
+            context=app.state.context,
         )
         info = {
             "model": "mock" if app.state.mock else Path(cfg.model.path).name,
             "mock": bool(app.state.mock),
             "compute_type": cfg.model.compute_type,
+            "context": app.state.context.name,
             "rss_mb": round(current_rss_mb(), 1),
         }
         session = ClientSession(
@@ -231,7 +238,12 @@ def create_app(
     return app
 
 
-def run_server(config: AppConfig, *, mock: bool = False) -> None:
+def run_server(
+    config: AppConfig,
+    *,
+    mock: bool = False,
+    context: ContextProfile | str = "general",
+) -> None:
     try:
         import uvicorn
     except ImportError as exc:  # pragma: no cover - guarded by the CLI as well
@@ -243,7 +255,7 @@ def run_server(config: AppConfig, *, mock: bool = False) -> None:
             config.server.host,
         )
 
-    app = create_app(config, mock=mock)
+    app = create_app(config, mock=mock, context=context)
     print(
         f"Danglish {__version__} — http://{config.server.host}:{config.server.port}",
         flush=True,

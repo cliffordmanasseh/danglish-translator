@@ -2,10 +2,16 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-build/
-dist/
+/build/
+/dist/
 .venv/
 venv/
+
+# Desktop build artifacts (models and the PyInstaller sidecar are large)
+desktop/node_modules/
+desktop/resources/backend/
+desktop/resources/models/
+desktop/release/
 
 # Tooling
 .pytest_cache/

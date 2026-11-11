@@ -1,0 +1,26 @@
+{
+  "name": "danglish-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Danglish — local Danish to English speech-to-speech translator",
+  "main": "main.js",
+  "author": {
+    "name": "Danglish contributors",
+    "email": "danglish@example.invalid"
+  },
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "electron .",
+    "start:devtools": "DANGLISH_DEVTOOLS=1 electron .",
+    "backend:build": "node scripts/build-backend.mjs",
+    "models:bundle": "node scripts/prepare-models.mjs",
+    "dist": "npm run backend:build && npm run models:bundle && electron-builder --publish never",
+    "dist:linux": "npm run backend:build && npm run models:bundle && electron-builder --linux --publish never",
+    "dist:win": "npm run backend:build && npm run models:bundle && electron-builder --win --publish never",
+    "dist:mac": "npm run backend:build && npm run models:bundle && electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0"
+  }
+}

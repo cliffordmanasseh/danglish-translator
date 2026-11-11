@@ -18,6 +18,11 @@ All notable changes to this project are documented here. The format follows
   input/output setups; half-duplex remains the default for laptop speakers.
 - `danglish audio-check`: lists devices, records a few seconds, reports per-channel input
   levels, and plays an output test tone.
+- Context profiles (`general`, `sermon`) with conservative terminology preferences and a
+  `--context` option in the CLI.
+- Chromium/Electron desktop app with a bundled Python sidecar and all three models, a
+  caption UI, device/channel settings, context selection, full-duplex control, and a
+  Linux AppImage build. Cross-platform packaging workflow for Windows and macOS.
 - Stable audio-device selection by name (`--input-device "Volt 4"`), native-rate capture
   with resampling to 16 kHz, explicit output streams for multi-channel interfaces, and
   `--input-channel` / `--output-channel` mapping. This fixes UAD/PipeWire setups where

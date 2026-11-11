@@ -13,6 +13,7 @@ from typing import Protocol
 import numpy as np
 
 from .backends.base import TranslatorBackend
+from .context import ContextProfile
 from .pipeline import StreamingPipeline
 
 
@@ -60,6 +61,7 @@ class SpeechTranslator:
         *,
         min_partial_chars: int = 12,
         max_pending_chars: int = 4000,
+        context: ContextProfile | None = None,
     ) -> None:
         self._asr = asr
         self._tts = tts
@@ -67,6 +69,7 @@ class SpeechTranslator:
             backend,
             min_partial_chars=min_partial_chars,
             max_pending_chars=max_pending_chars,
+            context=context,
         )
         self._closed = False
 

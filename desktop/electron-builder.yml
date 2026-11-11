@@ -1,0 +1,51 @@
+appId: com.danglish.app
+productName: Danglish
+copyright: Copyright 2026 Danglish contributors
+asar: true
+compression: normal
+directories:
+  output: release
+  buildResources: build
+files:
+  - main.js
+  - preload.js
+  - renderer/**/*
+  - package.json
+extraResources:
+  - from: resources/backend
+    to: backend
+  - from: resources/models
+    to: models
+  - from: ../LICENSE
+    to: legal/LICENSE
+  - from: ../NOTICE
+    to: legal/NOTICE
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  # Unsigned local/test builds are usable via right-click → Open. Enable the
+  # hardened runtime and sign/notarize before distributing a macOS release.
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: Danglish uses the microphone to translate Danish speech into English speech locally.
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+linux:
+  # Add a deb target once the project has a real homepage URL; electron-builder
+  # requires one for Debian package metadata.
+  target:
+    - AppImage
+  category: AudioVideo
+  synopsis: Local Danish to English speech-to-speech translator
+  description: Local, real-time Danish to English speech translation with Whisper, OPUS-MT, and Piper.
+artifactName: Danglish-${version}-${os}-${arch}.${ext}

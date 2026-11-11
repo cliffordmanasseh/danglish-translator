@@ -60,6 +60,38 @@ System dependency for audio on Debian/Ubuntu:
 sudo apt install libportaudio2
 ```
 
+### Desktop app
+
+![Danglish desktop app](docs/screenshot-desktop.png)
+
+The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
+start/stop control, live Danish/English captions, context profiles, full-duplex mode, and
+audio-device/channel settings. It bundles the Python sidecar and all three models.
+
+For development:
+
+```bash
+uv sync --extra speech --extra convert --extra build
+uv run danglish fetch
+
+cd desktop
+npm install
+npm start
+```
+
+To build an installer for the current OS (models included):
+
+```bash
+cd desktop
+npm run dist
+```
+
+This produces a Linux AppImage (~865 MB here), a Windows NSIS installer, or a macOS
+DMG/zip, depending on the platform. PyInstaller cannot cross-compile the Python sidecar,
+so Windows and macOS installers must be built on those operating systems (or with the
+`Desktop builds` GitHub Actions workflow). The builds are unsigned by default; macOS will
+need right-click → Open until signing/notarization is added.
+
 ### Text mode and web demo
 
 The translator core also runs without audio:
@@ -132,6 +164,13 @@ Full-duplex uses the same models and bounded audio queues; its memory footprint 
 unchanged. The extra cost is CPU contention with playback, which is small because
 playback itself is cheap.
 
+The **CLI** is the leanest option. The Electron desktop app adds roughly 0.6 GB across its
+Chromium processes (summed RSS; shared pages are counted more than once), so a loaded
+window is around 1.2 GB and an ASR-heavy turn can approach 1.6 GB. It still fits under
+2 GB, but with less headroom for the OS. On a strict 2 GB machine, measure with
+`ps`/Task Manager and prefer `danglish talk` if the desktop shell is too close to the
+limit. See the screenshot and build notes in [`desktop/`](desktop/).
+
 Measured turn latency for a 20-second Danish audio clip:
 
 | Stage | Time | Real-time factor |
@@ -173,10 +212,12 @@ danglish talk --full-duplex       keep listening while English audio plays (isol
 danglish talk --no-tts            microphone → Danish ASR → English text only
 danglish talk --list-devices      list audio devices
 danglish audio-check              list devices, measure input levels, play a test tone
+danglish devices                  list audio devices and defaults (used by the desktop UI)
 danglish translate "text" | -f file | -        one-shot text translation
 danglish repl                     interactive line-by-line text translation
 danglish stream                   incremental stdin → stdout, with partials
 danglish serve                    local text WebSocket demo + web UI
+danglish contexts                 list translation context profiles
 danglish fetch                    download + convert the OPUS-MT model
 danglish doctor                   environment, dependency, and memory checks
 danglish bench                    text latency and peak-RSS benchmark
@@ -193,6 +234,8 @@ danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4"
 danglish talk --input-channel 1     # microphone on UAD input 2
 danglish talk --stats               # ASR/MT/TTS timings per turn
 danglish talk --json                # machine-readable turns, still speaks
+danglish talk --context sermon      # church terminology profile
+danglish translate --context sermon "Menigheden samledes søndag."
 ```
 
 Every option can be overridden on the command line (`--model-path`, `--compute-type`,
@@ -265,6 +308,31 @@ new translation starts. Streaming ASR with partial hypotheses is the next latenc
 see the roadmap. On a 2–4 core machine, overlapping ASR with playback can add a little
 latency, but memory stays flat because the models are shared.
 
+## Context profiles
+
+A setting such as “church sermon” cannot be given to the current 77M OPUS-MT model as an
+instruction — it has no prompt channel. Danglish implements the part that is reliable
+today: conservative terminology preferences, applied only when the Danish source contains
+the corresponding term.
+
+```bash
+danglish contexts
+# general    General
+# sermon     Church / sermon
+
+danglish translate --context sermon "Menigheden samledes søndag."
+# The congregation gathered on Sunday.
+```
+
+The `sermon` profile prefers *congregation*, *sermon*, *pastor*, *worship service*,
+*Holy Communion*, *the Holy Spirit*, and *Savior*. It deliberately skips ambiguous cases,
+such as a source that mentions both *menighed* and *kirke* (congregation and building).
+
+This improves consistency, not general discourse understanding. The real quality step is
+a domain fine-tune: the 77M model can be fine-tuned on sermon data, converted to
+CTranslate2, and selected by a profile at the same inference size. The plan, evaluation
+method, and trade-offs are in [`docs/context.md`](docs/context.md).
+
 ## Repository layout
 
 ```text
@@ -281,8 +349,11 @@ src/danglish/
     mic.py             microphone capture, playback, talk loop
     util.py            resampling and WAV helpers
   server/              FastAPI WebSocket server + text UI
+desktop/               Electron UI, settings, packaging scripts
+packaging/             PyInstaller sidecar spec
 scripts/
   speech_smoke.py      WAV file → English WAV, no microphone needed
+  bundle_models.py     assemble the desktop model bundle
 tests/                 unit tests + integration tests (marked `integration`)
 ```
 
@@ -312,9 +383,13 @@ if you switch voices, check that voice's license.
 - [x] Local microphone → English speech pipeline (ASR + MT + TTS)
 - [x] Parallel capture, translation, and playback
 - [x] Full-duplex mode for isolated audio I/O
-- [ ] Browser microphone + server-side audio-to-audio
+- [x] Electron desktop UI with bundled models and a Python sidecar
+- [ ] Signed/notarized Windows and macOS installers
+- [ ] Browser microphone + server-side audio-to-audio (web UI)
 - [ ] Streaming/partial ASR for lower latency
 - [ ] Acoustic echo cancellation for shared speaker/microphone setups
+- [x] Conservative context/terminology profiles (`general`, `sermon`)
+- [ ] Sermon-domain fine-tune and evaluation set
 - [ ] Quality evaluation harness (FLORES-200 / CoRal samples)
 - [ ] Prequantized packaged ASR/TTS artifacts for faster first run
 - [ ] Optional higher-quality English voices
