@@ -54,6 +54,27 @@ diarization, document-level context, and cloud-scale throughput. Parallel turn p
 └──────────────┘
 ```
 
+### Audio devices and sample rates
+
+Audio interfaces rarely accept 16 kHz directly. On Linux, a UAD Volt 4 exposes 4-channel
+48 kHz capture and playback; forcing a 16 kHz input stream bypasses the device's native
+configuration and can fail or produce silence. The runtime therefore:
+
+- resolves devices by name (stable across PortAudio/PipeWire restarts) or index, and
+  prefers the PulseAudio host API's default, which follows the desktop's selected
+  interface;
+- opens capture at the device's native rate and resamples each 30 ms block to 16 kHz for
+  the VAD and Whisper;
+- opens output at the device's native rate, resamples Piper's 22.05 kHz audio, and writes
+  through an explicit `OutputStream` rather than `sd.play()` (which can hang on
+  multi-channel PulseAudio sinks);
+- selects the input channel and output channel explicitly (`--input-channel`,
+  `--output-channel`), opening enough channels for the requested index.
+
+`danglish audio-check` exercises this path without loading any models: it lists devices,
+records a short sample, reports per-channel RMS/peak, and plays a test tone. This is the
+first diagnostic for an interface that is detected but silent or inaudible.
+
 ### Why two-stage (ASR → MT) instead of Whisper's built-in translation?
 
 Whisper can translate speech directly to English, but the two-stage design is better here:
@@ -114,7 +135,8 @@ boundaries as a safety net. Normal streaming input is already sentence-sized.
 
 The `talk` path has four concurrent contexts:
 
-1. **PortAudio callback** — copies 30 ms frames into a bounded raw-frame queue. It never
+1. **PortAudio callback** — selects the configured input channel, resamples the native
+   device rate to 16 kHz, and copies 30 ms frames into a bounded raw-frame queue. It never
    runs a model and never blocks.
 2. **VAD loop (main thread)** — consumes frames, segments utterances, and submits them to
    a bounded utterance queue. This loop stays responsive while models are working, so

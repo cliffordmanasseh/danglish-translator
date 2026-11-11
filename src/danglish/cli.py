@@ -317,6 +317,12 @@ def cmd_talk(args: argparse.Namespace) -> int:
             full_duplex=args.full_duplex,
             input_device=args.input_device,
             output_device=args.output_device,
+            input_channel=args.input_channel,
+            output_channel=args.output_channel,
+            input_rate=args.input_rate,
+            output_rate=args.output_rate,
+            input_channels=args.input_channels,
+            output_channels=args.output_channels,
             min_energy=args.min_energy,
             silence_ms=args.silence_ms,
             language=args.language,
@@ -325,6 +331,54 @@ def cmd_talk(args: argparse.Namespace) -> int:
         )
     finally:
         backend.close()
+    return 0
+
+
+def cmd_audio_check(args: argparse.Namespace) -> int:
+    try:
+        import sounddevice as sd
+    except ImportError as exc:
+        raise DanglishError(
+            "audio diagnostics need the optional speech dependencies.\n"
+            "  uv:  uv sync --extra speech\n"
+            '  pip: pip install "danglish[speech]"'
+        ) from exc
+
+    try:
+        from .audio.check import check_input, check_output, list_devices
+        from .audio.device import resolve_device
+
+        input_index = None
+        output_index = None
+        if not args.list:
+            input_index = resolve_device(sd, args.input_device, "input")
+            if not args.no_tone:
+                output_index = resolve_device(sd, args.output_device, "output")
+
+        list_devices(sd, input_index=input_index, output_index=output_index)
+        if args.list:
+            return 0
+
+        print()
+        check_input(
+            sd,
+            args.input_device,
+            seconds=args.seconds,
+            channels=args.input_channels,
+            channel=args.input_channel,
+            sample_rate=args.input_rate,
+        )
+        if not args.no_tone:
+            print()
+            check_output(
+                sd,
+                args.output_device,
+                channels=args.output_channels,
+                channel=args.output_channel,
+                sample_rate=args.output_rate,
+            )
+    except (ValueError, sd.PortAudioError) as exc:
+        raise DanglishError(f"audio check failed: {exc}") from exc
     return 0
 
 
@@ -517,8 +571,33 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     talk.add_argument("--language", default="da", help="source language code (default: da)")
-    talk.add_argument("--input-device", type=int, help="sounddevice input device index")
-    talk.add_argument("--output-device", type=int, help="sounddevice output device index")
+    talk.add_argument("--input-device", help="input device index or name substring (e.g. 'Volt 4')")
+    talk.add_argument(
+        "--output-device", help="output device index or name substring (e.g. 'Volt 4')"
+    )
+    talk.add_argument(
+        "--input-channel",
+        type=int,
+        default=0,
+        help="0-based input channel (UAD input 1 is usually channel 0)",
+    )
+    talk.add_argument(
+        "--output-channel",
+        type=int,
+        help="0-based output channel; default duplicates mono to both opened channels",
+    )
+    talk.add_argument("--input-rate", type=int, help="capture rate (default: device rate)")
+    talk.add_argument("--output-rate", type=int, help="playback rate (default: device rate)")
+    talk.add_argument(
+        "--input-channels",
+        type=int,
+        help="number of input channels to open (default: enough for --input-channel)",
+    )
+    talk.add_argument(
+        "--output-channels",
+        type=int,
+        help="number of output channels to open (default: 2 when available)",
+    )
     talk.add_argument(
         "--min-energy",
         type=float,
@@ -533,6 +612,30 @@ def build_parser() -> argparse.ArgumentParser:
     talk.add_argument("--json", action="store_true", help="emit JSON lines")
     _add_model_options(talk)
     talk.set_defaults(func=cmd_talk)
+
+    audio_check = subparsers.add_parser(
+        "audio-check",
+        aliases=["check-audio"],
+        help="test audio devices, input levels, and output",
+        description=(
+            "List audio devices, record a few seconds from the input and report "
+            "per-channel levels, and play a test tone on the output."
+        ),
+    )
+    audio_check.add_argument("--input-device", help="index or name substring")
+    audio_check.add_argument("--output-device", help="index or name substring")
+    audio_check.add_argument("--input-channel", type=int, default=0, help="0-based channel")
+    audio_check.add_argument("--output-channel", type=int, help="0-based channel")
+    audio_check.add_argument(
+        "--input-channels", type=int, help="channels to open for the level test"
+    )
+    audio_check.add_argument("--output-channels", type=int, help="channels to open for the tone")
+    audio_check.add_argument("--input-rate", type=int)
+    audio_check.add_argument("--output-rate", type=int)
+    audio_check.add_argument("--seconds", type=float, default=3.0, help="input test duration")
+    audio_check.add_argument("--no-tone", action="store_true", help="skip the output test")
+    audio_check.add_argument("--list", action="store_true", help="only list devices")
+    audio_check.set_defaults(func=cmd_audio_check)
 
     fetch = subparsers.add_parser(
         "fetch",

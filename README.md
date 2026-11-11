@@ -38,6 +38,13 @@ The converted `models/opus-mt-da-en-int8` directory is self-contained. If you wa
 inference on a machine that should not install torch, convert on a bigger machine and
 copy that directory over.
 
+If you use a USB audio interface, run the diagnostic first. It lists stable device names,
+records a few seconds, prints per-channel input levels, and plays a test tone:
+
+```bash
+uv run --no-sync danglish audio-check
+```
+
 No `uv`? With pip:
 
 ```bash
@@ -165,6 +172,7 @@ danglish talk                     microphone → Danish ASR → English speech (
 danglish talk --full-duplex       keep listening while English audio plays (isolated I/O)
 danglish talk --no-tts            microphone → Danish ASR → English text only
 danglish talk --list-devices      list audio devices
+danglish audio-check              list devices, measure input levels, play a test tone
 danglish translate "text" | -f file | -        one-shot text translation
 danglish repl                     interactive line-by-line text translation
 danglish stream                   incremental stdin → stdout, with partials
@@ -180,8 +188,9 @@ Useful overrides:
 ```bash
 danglish talk --asr-model small --tts-voice en_GB-cori-high
 danglish talk --min-energy 0.008 --silence-ms 500
-danglish talk --input-device 2 --output-device 3
-danglish talk --full-duplex --input-device 2 --output-device 3
+danglish talk --input-device "Volt 4" --output-device "Volt 4"
+danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4"
+danglish talk --input-channel 1     # microphone on UAD input 2
 danglish talk --stats               # ASR/MT/TTS timings per turn
 danglish talk --json                # machine-readable turns, still speaks
 ```
@@ -210,8 +219,40 @@ Every option can be overridden on the command line (`--model-path`, `--compute-t
 If your interface keeps the microphone and speaker signals separate, use:
 
 ```bash
-danglish talk --full-duplex --input-device 2 --output-device 3 --stats
+# First: verify devices, channels, levels, and monitoring
+danglish audio-check
+
+# Then: keep listening while English audio plays
+danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4" --stats
 ```
+
+Device indices can change when PipeWire nodes come and go, so device **names** are the
+stable choice. `audio-check` marks the desktop-default input/output and prints per-channel
+RMS/peak levels. A UAD Volt 4 normally exposes input 1 as channel 0 and input 2 as
+channel 1; select the latter with `--input-channel 1`. Outputs 3/4 can be selected with
+`--output-channel 2 --output-channels 4`.
+
+The runtime now opens the interface at its native rate (typically 48 kHz) and resamples to
+16 kHz for the VAD/ASR, and it writes playback through an explicit output stream rather
+than `sd.play()` (which can hang on multi-channel PulseAudio interfaces). If the test tone
+is audible but your speakers are on another output pair, change `--output-channel`.
+
+### If the interface input is silent
+
+`danglish audio-check` is the first thing to run. If all channels are silent or very
+quiet:
+
+- confirm the microphone is on input 1 or 2, not a line input;
+- raise the hardware gain knob (aim for speech RMS around 0.02–0.1 in `audio-check`);
+- enable 48V phantom power for a condenser microphone;
+- if the mic is on input 2, add `--input-channel 1`;
+- if the device only streams a fixed channel count, add `--input-channels 4` (or the
+  count reported by `audio-check`).
+
+The default VAD threshold is 0.006 RMS. A very quiet but clean interface can use
+`--min-energy 0.003`; check that the level display stays quiet when nobody is speaking,
+otherwise the VAD will trigger on noise. For a UAD, the hardware monitor/volume knob must
+also be up to hear the test tone and the English output.
 
 The capture callback keeps feeding the VAD while playback runs. A new Danish turn can be
 recognized, translated, and synthesized while the previous English sentence is still

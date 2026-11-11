@@ -16,6 +16,12 @@ All notable changes to this project are documented here. The format follows
 - Parallel audio runtime with separate capture/VAD, translation, and playback threads and
   bounded queues. `--full-duplex` keeps listening while English audio plays for isolated
   input/output setups; half-duplex remains the default for laptop speakers.
+- `danglish audio-check`: lists devices, records a few seconds, reports per-channel input
+  levels, and plays an output test tone.
+- Stable audio-device selection by name (`--input-device "Volt 4"`), native-rate capture
+  with resampling to 16 kHz, explicit output streams for multi-channel interfaces, and
+  `--input-channel` / `--output-channel` mapping. This fixes UAD/PipeWire setups where
+  PortAudio's `sd.play()` hung and where forcing 16 kHz bypassed the interface.
 - CLI commands: `translate`, `repl`, `stream`, `serve`, `talk`/`mic`, `fetch`, `doctor`,
   `bench`, `version`.
 - Memory diagnostics and a benchmark that fails when peak RSS exceeds the 2 GB budget.
