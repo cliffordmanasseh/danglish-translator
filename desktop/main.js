@@ -9,6 +9,7 @@ const { spawn } = require("child_process");
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
 const repoRoot = path.resolve(__dirname, "..");
+const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
 let mainWindow = null;
 let backendProcess = null;
@@ -71,8 +72,13 @@ function modelPaths(settings) {
     ? path.join(bundled, "opus-mt-da-en-int8")
     : path.join(devModels, "opus-mt-da-en-int8");
 
-  const bundledAsr = path.join(bundled, "whisper-small");
-  const asr = useBundled ? bundledAsr : null;
+  const bundledAsr = path.join(bundled, "whisper-small-danish");
+  const legacyAsr = path.join(bundled, "whisper-small");
+  const asr = useBundled
+    ? fs.existsSync(bundledAsr)
+      ? bundledAsr
+      : legacyAsr
+    : null;
 
   let voice = null;
   if (useBundled) {
@@ -96,7 +102,7 @@ function buildBackendArgs(settings) {
 
   if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
   if (models.asr) args.push("--asr-model", models.asr);
-  else args.push("--asr-model", settings.asrModel || "small");
+  else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
   if (settings.ttsEnabled !== false) {
     if (models.voice) args.push("--tts-voice", models.voice);

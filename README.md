@@ -27,8 +27,8 @@ uv run --no-sync danglish talk
 uv run --no-sync danglish talk --full-duplex
 ```
 
-The first run downloads Whisper `small` (~464 MB), a Piper English voice (~63 MB), and
-the OPUS-MT source model; the converted runtime model is ~77 MB. The one-time conversion
+The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), a Piper English
+voice (~60 MB), and the OPUS-MT source model; the converted runtime model is ~77 MB. The one-time conversion
 also installs torch and keeps the original model in the Hugging Face cache, so budget
 roughly 1.5 GB of disk for setup. After that, model loading takes a few seconds. Use
 headphones: the microphone is muted while English audio plays, which avoids a feedback
@@ -86,13 +86,13 @@ cd desktop
 npm run dist
 ```
 
-This produces a Linux AppImage (~865 MB here), a Windows NSIS installer, or a macOS
+This produces a Linux AppImage (~700 MB here), a Windows NSIS installer, or a macOS
 DMG/zip, depending on the platform. PyInstaller cannot cross-compile the Python sidecar,
 so Windows and macOS installers must be built on those operating systems (or with the
 `Desktop builds` GitHub Actions workflow). The builds are unsigned by default; macOS will
 need right-click → Open until signing/notarization is added.
 
-The model files are platform-independent. Copy `desktop/resources/models/` (601 MB) from
+The model files are platform-independent. Copy `desktop/resources/models/` (~375 MB) from
 this machine to a Windows/macOS checkout to test without re-downloading the models; the
 desktop app and the installer build both reuse that directory.
 
@@ -114,8 +114,8 @@ uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no micr
      │
      ▼
 ┌───────────┐   ┌──────────────────┐   ┌────────────────────┐   ┌──────────────┐
-│ energy VAD│──▶│ Whisper small    │──▶│ OPUS-MT da→en      │──▶│ Piper TTS    │
-│ 16 kHz    │   │ int8, Danish ASR │   │ CT2 int8, streaming│   │ English voice│
+│ energy VAD│──▶│ Danish Whisper   │──▶│ OPUS-MT da→en      │──▶│ Piper TTS    │
+│ 16 kHz    │   │ small, int8 ASR  │   │ CT2 int8, streaming│   │ English voice│
 └───────────┘   └──────────────────┘   └────────────────────┘   └──────┬───────┘
                                                                       │
                                                                       ▼
@@ -135,7 +135,11 @@ is currently playing. The models are still used by a single translation worker, 
 memory does not increase; on a very small CPU, concurrent work can add a little latency.
 
 The text path uses the same translation core and adds a debounced partial preview of the
-sentence currently being written.
+sentence currently being written. Speech uses a different default: the **whole ASR turn**
+is translated in one call, because a turn is the natural context unit. This fixed
+context-dependent errors that sentence-by-sentence translation introduced (for example
+“indtalt” → “entered” became “recorded”). Use `--sentence-level` for the old lower-latency
+behavior.
 
 See [`docs/architecture.md`](docs/architecture.md) for the streaming algorithm, the
 half-duplex audio model, and the memory strategy. Detailed measurements are in
@@ -143,8 +147,11 @@ half-duplex audio model, and the memory strategy. Detailed measurements are in
 
 ### Why these models
 
-- **Whisper small, int8** is the smallest Whisper size that is reasonably usable for
-  Danish. It is ~464 MB on disk and runs at roughly 14× real time on the test machine.
+- **Danish fine-tuned Whisper small, int8** is a pre-quantized 238 MB model (stock small
+  is ~464 MB) and is markedly better on Danish: the model card reports WER 0.078 vs 0.234
+  for stock small on a 21.5 s clip, and our own 20 s sample improved from “Diversionen …
+  Danielen … encyklibedi” to “Det er versionen … indtalt … bruger Daniel … encyklopædi”.
+  It runs at roughly 14× real time on the test machine.
 - **Helsinki-NLP/opus-mt-da-en** is a 77M-parameter Marian model, converted to
   CTranslate2 int8 (~77 MB). It is a strong small general-purpose baseline, not a
   state-of-the-art translator.
@@ -161,7 +168,7 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 |---|---:|---:|---|
 | Text translation | ~77 MB | **147 MB** | 10-sentence corpus, p50 36 ms |
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
-| Full speech-to-speech | ~604 MB | **~1.0 GB** | ASR small + MT + Piper, multi-turn |
+| Full speech-to-speech | ~375 MB | **~1.0 GB** | Danish ASR + MT + Piper, multi-turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
 
 Full-duplex uses the same models and bounded audio queues; its memory footprint is
@@ -170,7 +177,7 @@ playback itself is cheap.
 
 The **CLI** is the leanest option. The Electron desktop app adds roughly 0.6 GB across its
 Chromium processes (summed RSS; shared pages are counted more than once), so a loaded
-window is around 1.2 GB and an ASR-heavy turn can approach 1.6 GB. It still fits under
+window is around 1.1–1.2 GB and an ASR-heavy turn can approach 1.5 GB. It still fits under
 2 GB, but with less headroom for the OS. On a strict 2 GB machine, measure with
 `ps`/Task Manager and prefer `danglish talk` if the desktop shell is too close to the
 limit. See the screenshot and build notes in [`desktop/`](desktop/).
@@ -179,10 +186,10 @@ Measured turn latency for a 20-second Danish audio clip:
 
 | Stage | Time | Real-time factor |
 |---|---:|---:|
-| Whisper small ASR | 1.3–1.4 s | ~14× real time |
-| OPUS-MT translation | 0.12–0.13 s | — |
-| Piper speech synthesis | 0.35–0.45 s | ~20–30× real time |
-| **Total** | **~1.8–2.0 s** | for 20 s of input |
+| Danish Whisper small ASR | 1.46 s | ~14× real time |
+| OPUS-MT translation | 0.15 s | — |
+| Piper speech synthesis | 0.38 s | ~30× real time |
+| **Total** | **~2.0 s** | for 20 s of input |
 
 With the default 600 ms end-of-speech pause, expect roughly **1–2 seconds from “stop
 speaking” to English audio** for short utterances, plus playback time. The first run
@@ -190,15 +197,16 @@ downloads models; subsequent process startups load them in a few seconds.
 
 The 20-second clip above was one continuous utterance. When the VAD splits the same clip
 into five turns, total processing is ~5.4 s (five Whisper calls, each with fixed
-overhead) and peak RSS is ~1.0 GB. Short fragments also give Whisper less context, so
-ASR quality drops; this is the normal trade-off of a turn-based interpreter. Tune
-`--silence-ms` and `--min-energy` for your microphone and speaking style.
+overhead) and peak RSS is ~1.0 GB. The Danish fine-tune handles short fragments much
+better than stock small (the 1 s fragment is now “Solen.” rather than “Såt.”), but the
+fixed ASR cost still dominates. Tune `--silence-ms` and `--min-energy` for your
+microphone and speaking style.
 
 ### Fitting under 2 GB
 
-The full stack peaks at about 1.0 GB (1,024 MB observed after four passes over the
-five-turn clip), leaving roughly 1 GB of headroom for the OS and other applications. If
-you need to go lower:
+The full stack peaks at about 1.0 GB (999 MB observed in the Danish-ASR multi-turn run),
+leaving roughly 1 GB of headroom for the OS and other applications. If you need to go
+lower:
 
 - `danglish talk --asr-model base` lowers ASR memory but hurts Danish accuracy.
 - Use `configs/small-pc.toml` (2 threads, greedy decoding) on a 2–4 core machine.
@@ -233,6 +241,7 @@ Useful overrides:
 ```bash
 danglish talk --asr-model small --tts-voice en_GB-cori-high
 danglish talk --min-energy 0.008 --silence-ms 500
+danglish talk --sentence-level    # lower latency, less context
 danglish talk --input-device "Volt 4" --output-device "Volt 4"
 danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4"
 danglish talk --input-channel 1     # microphone on UAD input 2
@@ -255,9 +264,11 @@ Every option can be overridden on the command line (`--model-path`, `--compute-t
   mutes: capture and ASR/MT/TTS continue while the previous English audio plays.
   Playback is still serialized, so new translations queue behind the audio currently
   playing. This is parallel processing, not overlapping English speech.
-- **Small-model quality.** Whisper `small` makes occasional Danish ASR mistakes, and
-  OPUS-MT is a compact model. Proper names, numbers, and domain terms are the usual
-  failure points. Check the printed Danish transcript when something sounds wrong.
+- **Small-model quality.** The Danish Whisper fine-tune is much better than stock small,
+  but it still makes occasional mistakes; OPUS-MT is a compact 77M model and remains the
+  quality ceiling for translation. Proper names, numbers, and domain terms are the usual
+  failure points. Check the printed Danish transcript first: if it is wrong, the error is
+  ASR; if it is right, the MT is at fault.
 - **One speaker, one stream.** The design is a local interpreter, not a multi-user
   meeting transcriber.
 
@@ -311,6 +322,25 @@ close an utterance, so 600 ms of silence (or a 15 s maximum segment) is required
 new translation starts. Streaming ASR with partial hypotheses is the next latency step;
 see the roadmap. On a 2–4 core machine, overlapping ASR with playback can add a little
 latency, but memory stays flat because the models are shared.
+
+## Translation quality
+
+The biggest speech-quality bug was not the MT model: it was the ASR. Stock Whisper
+`small` produced “Diversionen … Danielen … encyklibedi” on our test clip. The default is
+now the MIT-licensed Danish Whisper small fine-tune, which produces “Det er versionen …
+indtalt … bruger Daniel … encyklopædi” with the same runtime class. It also runs behind a
+Silero speech-presence gate, so silence and noise no longer produce hallucinated words.
+
+The second improvement is context: speech now translates the whole ASR turn, not one
+sentence at a time. This fixed “indtalt” → “entered” (sentence-level) vs “recorded”
+(whole-turn). Use `--sentence-level` only when latency matters more than context.
+
+The translation model itself remains a 77M OPUS-MT model. We tested the 228 MB
+`opus-mt-tc-big-gmq-en` on 1,000 OPUS-100 da→en sentences: BLEU 40.61 vs 40.82 for the
+77M model, at roughly half the throughput. A bigger generic model was not a free win.
+For a specific domain such as sermons, the high-leverage path is a small evaluation set
+plus a domain fine-tune; see [`docs/context.md`](docs/context.md). The `sermon` profile
+already applies conservative terminology preferences.
 
 ## Context profiles
 
@@ -369,7 +399,7 @@ their own licenses:
 | Component | Model | License |
 |---|---|---|
 | Translation | `Helsinki-NLP/opus-mt-da-en` | Apache-2.0 |
-| ASR | OpenAI Whisper `small` via faster-whisper | MIT |
+| ASR | `lucasw89/whisper-small-danish-ct2-int8` (Danish fine-tune of OpenAI Whisper small) | MIT |
 | TTS voice | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
 | TTS runtime | `piper-tts` (optional) | GPL-3.0-or-later |
 

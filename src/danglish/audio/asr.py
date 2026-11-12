@@ -9,18 +9,24 @@ from .util import resample_audio
 
 _TARGET_SAMPLE_RATE = 16_000
 
+# Danish fine-tune of Whisper small, packaged as a CTranslate2 int8 model. It has
+# the same memory footprint as stock small but is markedly better on Danish
+# (model-card WER 0.078 vs 0.234 on a 21.5 s clip).
+DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8"
+
 
 class WhisperASR:
     """Thin wrapper around faster-whisper for short, VAD-segmented utterances."""
 
     def __init__(
         self,
-        model_size: str = "small",
+        model_size: str = DEFAULT_ASR_MODEL,
         *,
         compute_type: str = "int8",
         cpu_threads: int = 4,
         language: str = "da",
         beam_size: int = 1,
+        vad_filter: bool = True,
     ) -> None:
         try:
             from faster_whisper import WhisperModel
@@ -33,6 +39,7 @@ class WhisperASR:
 
         self.language = language
         self.beam_size = beam_size
+        self.vad_filter = vad_filter
         self._model = WhisperModel(
             model_size,
             device="cpu",
@@ -53,6 +60,25 @@ class WhisperASR:
             return ""
         if sample_rate != _TARGET_SAMPLE_RATE:
             samples = resample_audio(samples, sample_rate, _TARGET_SAMPLE_RATE)
+
+        if self.vad_filter:
+            # Use Silero as a speech-presence gate, then transcribe the original
+            # audio. Letting the inner VAD trim the audio can cut the last
+            # syllable and degrade the transcript; using it only as a gate keeps
+            # the full utterance while rejecting noise/silence.
+            try:
+                from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+                speech = get_speech_timestamps(
+                    samples,
+                    VadOptions(),
+                    sampling_rate=_TARGET_SAMPLE_RATE,
+                )
+                if not speech:
+                    return ""
+            except Exception:
+                # VAD failure must not drop real speech; continue without the gate.
+                pass
 
         segments, _info = self._model.transcribe(
             samples,

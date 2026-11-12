@@ -32,10 +32,11 @@ Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
 `DANGLISH_DEVTOOLS=1` to open Chromium DevTools on launch.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
-point. In development, Whisper and the Piper voice are downloaded on first use; the MT
-model must already exist from `danglish fetch`.
+point. The last 100 caption turns are kept in the app's local storage until you press
+**Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the Piper voice are downloaded on
+first use; the MT model must already exist from `danglish fetch`.
 
-If you already built the model bundle (601 MB), the dev app uses it automatically:
+If you already built the model bundle (~375 MB), the dev app uses it automatically:
 
 ```text
 desktop/resources/models/
@@ -43,7 +44,8 @@ desktop/resources/models/
 
 Model files are platform-independent. To test on a Windows or macOS machine without
 downloading anything, copy that directory from the Linux build into the same location on
-the other machine. `npm start` and `npm run dist` both reuse it.
+the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~375 MB:
+77 MB MT, 238 MB Danish ASR, 60 MB voice.
 
 ## Build a distributable
 
@@ -55,7 +57,7 @@ npm run dist
 That script:
 
 1. builds the Python sidecar with PyInstaller into `resources/backend/`;
-2. copies/downloads models into `resources/models/` (~601 MB);
+2. copies/downloads models into `resources/models/` (~375 MB);
 3. runs electron-builder for the current platform into `release/`.
 
 The app resources look like:
@@ -64,14 +66,15 @@ The app resources look like:
 resources/
   backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, Piper, onnxruntime
   models/opus-mt-da-en-int8/     translation model
-  models/whisper-small/          ASR model
+  models/whisper-small-danish/   Danish fine-tuned ASR model
   models/voices/                 Piper voice
   legal/LICENSE
   legal/NOTICE
 ```
 
-Installers are large (roughly 1 GB) because the models are included. `resources/models`
-and `resources/backend` are generated and are not committed.
+Installers are large (roughly 700 MB–1 GB depending on platform) because the Python
+runtime and models are included. `resources/models` and `resources/backend` are generated
+and are not committed.
 
 ## Cross-platform builds
 
@@ -124,9 +127,9 @@ to see per-channel RMS levels and play a test tone.
 ## Memory
 
 The UI process is Chromium, so it adds memory over the CLI. On the reference Linux machine
-the loaded Python speech stack was ~584 MB RSS and the Electron processes summed to
-~590 MB (summed RSS overcounts shared pages). A loaded window is therefore ~1.2 GB, and a
-peak ASR turn can approach ~1.6 GB total. That still fits under 2 GB, but with limited
+the loaded Python speech stack is ~0.6 GB RSS and the Electron processes sum to ~0.6 GB
+(summed RSS overcounts shared pages). A loaded window is therefore ~1.1–1.2 GB, and a
+peak ASR turn can approach ~1.5 GB total. That still fits under 2 GB, but with limited
 headroom for the OS. The CLI (`danglish talk`) remains the low-memory option.
 
 ## Licensing

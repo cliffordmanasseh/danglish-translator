@@ -88,7 +88,7 @@
         <button class="text-btn" id="legalBtn" type="button">Licenses &amp; attribution</button>
 
         <div class="meta">
-          <span id="modelInfo">Whisper small · OPUS-MT · Piper</span>
+          <span id="modelInfo">Danish Whisper · OPUS-MT · Piper</span>
           <span id="rssInfo"></span>
         </div>
       </aside>
@@ -129,7 +129,10 @@
               Click <strong>Start listening</strong> and speak Danish. The English
               translation plays through your selected output device.
             </p>
-            <p class="small">First start loads the local models — usually a few seconds.</p>
+            <p class="small">
+              First start loads the local models — usually a few seconds. Captions are kept
+              locally until you press Clear.
+            </p>
           </div>
         </section>
 
@@ -181,9 +184,12 @@
           <label>
             <span>Speech model</span>
             <select id="asrModel">
-              <option value="small">small — recommended</option>
-              <option value="base">base — lower memory, lower accuracy</option>
-              <option value="tiny">tiny — experimental</option>
+              <option value="lucasw89/whisper-small-danish-ct2-int8">
+                Danish small — recommended
+              </option>
+              <option value="small">Stock Whisper small</option>
+              <option value="base">Stock base — lower memory, lower accuracy</option>
+              <option value="tiny">Stock tiny — experimental</option>
             </select>
           </label>
           <label>

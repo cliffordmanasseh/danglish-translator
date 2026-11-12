@@ -13,6 +13,13 @@ Helsinki-NLP/opus-mt-da-en
   License: Apache-2.0
   https://huggingface.co/Helsinki-NLP/opus-mt-da-en
 
+lucasw89/whisper-small-danish-ct2-int8
+  CTranslate2 int8 conversion of thorhojhus/whisper-small-danish, a Danish
+  fine-tune of OpenAI Whisper "small"
+  License: MIT
+  https://huggingface.co/lucasw89/whisper-small-danish-ct2-int8
+  https://huggingface.co/thorhojhus/whisper-small-danish
+
 OpenAI Whisper "small"
   Speech recognition model weights
   License: MIT

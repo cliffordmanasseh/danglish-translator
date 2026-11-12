@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from danglish.audio.asr import WhisperASR
+from danglish.audio.asr import DEFAULT_ASR_MODEL, WhisperASR
 from danglish.audio.util import read_wav, write_wav
 from danglish.backends import create_backend
 from danglish.config import load_config
@@ -33,7 +33,7 @@ def main() -> int:
     parser.add_argument("-o", "--output", type=Path, default=Path("english.wav"))
     parser.add_argument("--config", type=Path)
     parser.add_argument("--model-path", type=Path)
-    parser.add_argument("--asr-model", default="small")
+    parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL)
     parser.add_argument("--voice")
     args = parser.parse_args()
 

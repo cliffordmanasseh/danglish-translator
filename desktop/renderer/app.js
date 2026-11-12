@@ -1,6 +1,8 @@
 "use strict";
 
-const STORAGE_KEY = "danglish.desktop.settings.v1";
+const STORAGE_KEY = "danglish.desktop.settings.v2";
+const HISTORY_KEY = "danglish.desktop.history.v1";
+const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
 const DEFAULT_SETTINGS = {
   context: "general",
@@ -12,7 +14,7 @@ const DEFAULT_SETTINGS = {
   outputChannel: null,
   silenceMs: 600,
   minEnergy: 0.006,
-  asrModel: "small",
+  asrModel: DEFAULT_ASR_MODEL,
   voice: "en_GB-alba-medium",
 };
 
@@ -44,6 +46,7 @@ const state = {
   outputInfo: "",
   feedStarted: false,
   emptyMarkup: "",
+  history: loadHistory(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -99,6 +102,19 @@ function loadSettings() {
 
 function saveSettings() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.settings));
+}
+
+function loadHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.slice(-100) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(state.history.slice(-100)));
 }
 
 function shortDeviceName(name) {
@@ -247,9 +263,9 @@ function populateAsrOptions() {
     return;
   }
   for (const option of Array.from(els.asrModel.options)) {
-    option.disabled = option.value !== "small";
+    option.disabled = option.value !== DEFAULT_ASR_MODEL;
   }
-  els.asrModel.value = "small";
+  els.asrModel.value = DEFAULT_ASR_MODEL;
 }
 
 function addDeviceOption(select, value, label, title) {
@@ -334,7 +350,7 @@ async function loadAppInfo() {
     populateVoices();
     populateAsrOptions();
     if (state.appInfo.packaged) {
-      els.modelInfo.textContent = "Bundled models · Whisper small · OPUS-MT · Piper";
+      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · Piper";
     }
   } catch (error) {
     els.modelInfo.textContent = "Backend offline";
@@ -387,6 +403,8 @@ function addSessionDivider(label) {
 }
 
 function clearFeed() {
+  state.history = [];
+  saveHistory();
   els.feed.innerHTML = state.emptyMarkup;
   els.feedStarted = false;
   els.lastEvent.textContent = "—";
@@ -396,7 +414,7 @@ function clearFeed() {
   }
 }
 
-function appendUtterance(payload) {
+function appendUtterance(payload, { persist = true } = {}) {
   const segments = Array.isArray(payload.segments) ? payload.segments : [];
   const target = segments
     .map((segment) => segment.target)
@@ -458,6 +476,12 @@ function appendUtterance(payload) {
   els.feed.appendChild(article);
   els.feedStarted = true;
 
+  if (persist) {
+    state.history.push(payload);
+    state.history = state.history.slice(-100);
+    saveHistory();
+  }
+
   if (nearBottom) {
     els.feed.scrollTop = els.feed.scrollHeight;
   }
@@ -498,7 +522,6 @@ function handleInfo(payload) {
 async function startListening() {
   if (!window.danglish || state.busy) return;
   setSettingsFromControls();
-  clearFeed();
   addSessionDivider(`Session ${new Date().toLocaleTimeString()}`);
   setStatus("starting", "Starting the local models…");
   try {
@@ -541,7 +564,7 @@ function openSettings() {
       : String(state.settings.outputChannel);
   els.silenceMs.value = String(state.settings.silenceMs ?? 600);
   els.minEnergy.value = String(state.settings.minEnergy ?? 0.006);
-  els.asrModel.value = state.settings.asrModel || "small";
+  els.asrModel.value = state.settings.asrModel || DEFAULT_ASR_MODEL;
   populateVoices();
   els.voice.value = state.settings.voice;
   populateDeviceSelects();
@@ -628,6 +651,13 @@ function bindEvents() {
 
 async function bootstrap() {
   state.emptyMarkup = els.feed.innerHTML;
+  if (state.history.length) {
+    $("empty")?.remove();
+    for (const item of state.history) {
+      appendUtterance(item, { persist: false });
+    }
+    els.feed.scrollTop = els.feed.scrollHeight;
+  }
   els.fullDuplex.checked = Boolean(state.settings.fullDuplex);
   els.ttsEnabled.checked = state.settings.ttsEnabled !== false;
   els.contextSelect.value = state.settings.context;

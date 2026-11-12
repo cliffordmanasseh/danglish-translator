@@ -35,7 +35,7 @@ diarization, document-level context, and cloud-scale throughput. Parallel turn p
        │  utterance audio (~1–15 s)
        ▼
 ┌──────────────┐  faster-whisper "small", int8, language="da"
-│ Whisper ASR  │  no internal VAD, no previous-text conditioning
+│ Whisper ASR  │  Danish small, inner Silero VAD, no previous-text conditioning
 └──────┬───────┘
        │  Danish transcript
        ▼
@@ -74,6 +74,14 @@ configuration and can fail or produce silence. The runtime therefore:
 `danglish audio-check` exercises this path without loading any models: it lists devices,
 records a short sample, reports per-channel RMS/peak, and plays a test tone. This is the
 first diagnostic for an interface that is detected but silent or inaudible.
+
+### Speech translation unit
+
+The speech path translates the **whole ASR utterance** in one MT call by default. The
+text streaming path still works sentence by sentence, but sentence-level translation
+discarded context that the ASR turn already provides. On the benchmark clip, the sentence
+path produced “indtalt” → “entered”, while the whole-turn path correctly produced
+“recorded”. `--sentence-level` restores the old behavior for lower latency.
 
 ### Why two-stage (ASR → MT) instead of Whisper's built-in translation?
 
@@ -183,9 +191,9 @@ Measured on the development machine:
 
 - text pipeline: **147 MB** peak;
 - text + FastAPI server: **185 MB** peak;
-- speech stack (ASR small + MT + Piper): **~1.0 GB** peak, stabilizing around 925 MB RSS
-  after several turns. Full-duplex keeps the same models and bounded queues, so its
-  footprint is unchanged; only CPU contention changes.
+- speech stack (Danish ASR small + MT + Piper): **~1.0 GB** peak, around 900 MB RSS after
+  several turns. Full-duplex keeps the same models and bounded queues, so its footprint
+  is unchanged; only CPU contention changes.
 
 The speech peak includes CTranslate2's temporary allocation while quantizing the Whisper
 weights on load (~730 MB), growing to ~1,024 MB as ASR/TTS buffers are exercised. The

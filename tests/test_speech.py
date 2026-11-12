@@ -58,11 +58,29 @@ class RecordingBackend:
         return None
 
 
-def test_produces_text_and_audio_per_sentence() -> None:
+def test_default_translates_whole_utterance() -> None:
+    tts = FakeTTS()
+    backend = RecordingBackend()
+    speech = SpeechTranslator(FakeASR(), backend, tts)
+
+    result = speech.translate_utterance(np.zeros(1600, dtype=np.float32))
+
+    assert result is not None
+    assert len(result.segments) == 1
+    assert result.segments[0].source == "Hej med dig. Hvordan går det?"
+    assert result.segments[0].target == "EN(Hej med dig. Hvordan går det?)"
+    assert result.segments[0].audio is not None
+    assert tts.texts == ["EN(Hej med dig. Hvordan går det?)"]
+    assert result.asr_seconds >= 0
+    assert result.mt_seconds >= 0
+    assert result.tts_seconds >= 0
+
+
+def test_sentence_level_translates_each_sentence() -> None:
     asr = FakeASR()
     tts = FakeTTS()
     backend = RecordingBackend()
-    speech = SpeechTranslator(asr, backend, tts)
+    speech = SpeechTranslator(asr, backend, tts, sentence_level=True)
 
     result = speech.translate_utterance(np.zeros(1600, dtype=np.float32))
 
@@ -74,9 +92,6 @@ def test_produces_text_and_audio_per_sentence() -> None:
     assert all(segment.audio is not None for segment in result.segments)
     assert all(segment.sample_rate == 22_050 for segment in result.segments)
     assert tts.texts == ["EN(Hej med dig.)", "EN(Hvordan går det?)"]
-    assert result.asr_seconds >= 0
-    assert result.mt_seconds >= 0
-    assert result.tts_seconds >= 0
 
 
 def test_tts_failure_keeps_the_translation() -> None:

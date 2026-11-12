@@ -28,8 +28,16 @@ from danglish.models import (
 )
 from danglish.tts import DEFAULT_VOICE, ensure_voice
 
-WHISPER_REPO = "Systran/faster-whisper-small"
-WHISPER_FILES = ["config.json", "model.bin", "tokenizer.json", "vocabulary.txt", "README.md"]
+WHISPER_REPO = "lucasw89/whisper-small-danish-ct2-int8"
+WHISPER_FILES = [
+    "config.json",
+    "model.bin",
+    "tokenizer.json",
+    "vocabulary.json",
+    "preprocessor_config.json",
+    "README.md",
+    "LICENSE",
+]
 
 
 def _copy_dir(source: Path, destination: Path) -> None:
@@ -75,7 +83,7 @@ def bundle_mt(
 
 
 def bundle_asr(output: Path, *, repo_id: str, force: bool) -> Path:
-    destination = output / "whisper-small"
+    destination = output / "whisper-small-danish"
     if (destination / "model.bin").is_file() and not force:
         print(f"ASR: reusing {destination} ({directory_size_mb(destination):,.0f} MB)")
         return destination
@@ -97,7 +105,7 @@ def bundle_asr(output: Path, *, repo_id: str, force: bool) -> Path:
     # Hugging Face may leave a local metadata cache; it is not needed at runtime.
     shutil.rmtree(destination / ".cache", ignore_errors=True)
 
-    for name in ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt"):
+    for name in ("model.bin", "config.json", "tokenizer.json", "vocabulary.json"):
         if not (destination / name).is_file():
             raise SystemExit(f"ASR bundle is incomplete: missing {destination / name}")
     print(f"ASR: {destination} ({directory_size_mb(destination):,.0f} MB)")

@@ -342,6 +342,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             silence_ms=args.silence_ms,
             language=args.language,
             context=get_profile(args.context),
+            sentence_level=args.sentence_level,
             as_json=args.json,
             stats=args.stats,
         )
@@ -647,7 +648,13 @@ def build_parser() -> argparse.ArgumentParser:
             "en_GB-cori-high (114 MB, public domain)."
         ),
     )
-    talk.add_argument("--asr-model", default="small", help="faster-whisper model (default: small)")
+    talk.add_argument(
+        "--asr-model",
+        help=(
+            "faster-whisper model or path (default: the Danish fine-tuned "
+            "lucasw89/whisper-small-danish-ct2-int8)"
+        ),
+    )
     talk.add_argument(
         "--asr-compute-type", default="int8", choices=COMPUTE_TYPES, help="ASR compute type"
     )
@@ -667,6 +674,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     talk.add_argument("--language", default="da", help="source language code (default: da)")
+    talk.add_argument(
+        "--sentence-level",
+        action="store_true",
+        help=(
+            "translate each sentence separately instead of the whole ASR turn "
+            "(lower latency, less context)"
+        ),
+    )
     talk.add_argument("--input-device", help="input device index or name substring (e.g. 'Volt 4')")
     talk.add_argument(
         "--output-device", help="output device index or name substring (e.g. 'Volt 4')"

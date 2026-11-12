@@ -93,7 +93,7 @@ the JSON shape consumed by `desktop/renderer/app.js`. When adding a model, updat
 
 - The hard target is **2 GB peak RSS for the full speech stack**; the current measured
   peak is ~1.0 GB. The Electron shell adds ~0.6 GB across Chromium processes, so a
-  desktop peak approaches ~1.6 GB. New features should leave meaningful headroom.
+  desktop peak approaches ~1.5 GB. New features should leave meaningful headroom.
 - Do not add torch, transformers, or other heavy packages to the core dependencies.
   They belong in optional extras.
 - Report `danglish bench` output and, for audio changes, the RSS/peak and ASR/MT/TTS

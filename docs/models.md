@@ -38,32 +38,49 @@ keep this in mind.
   layout.
 - Bigger OPUS-MT “tc-big” models can improve quality but add hundreds of megabytes and
   latency; check the converted int8 size against the budget.
-- NLLB-200-distilled-600M is stronger for multilingual use, but it needs a different
-  tokenizer adapter and roughly 600 MB of int8 weights. It is not supported by the current
-  backend without code changes.
+- NLLB-200-distilled-600M is stronger for multilingual use, but it is CC-BY-NC-4.0
+  (non-commercial), needs a different tokenizer adapter, and is roughly 600 MB of int8
+  weights. It is not supported by the current backend without code changes.
+- `Helsinki-NLP/opus-mt-tc-big-gmq-en` is a larger 6+6-layer Marian model (~228 MB int8).
+  We benchmarked it on 1,000 OPUS-100 da→en sentences: BLEU 40.61 vs 40.82 for the 77M
+  model, at roughly half the throughput. It is not a free quality win; try it on your own
+  domain with `--model-path models/opus-mt-tc-big-gmq-en-int8` before adopting it.
 
-## Speech recognition — Whisper small
+## Speech recognition — Danish Whisper small
 
 | | |
 |---|---|
-| Source | OpenAI Whisper `small`, via [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) |
-| Runtime | CTranslate2 int8, CPU |
-| Disk | ~464 MB (downloaded by faster-whisper on first use) |
+| Source | [`lucasw89/whisper-small-danish-ct2-int8`](https://huggingface.co/lucasw89/whisper-small-danish-ct2-int8), a CT2 conversion of [`thorhojhus/whisper-small-danish`](https://huggingface.co/thorhojhus/whisper-small-danish) |
+| Base | OpenAI Whisper `small`, fine-tuned on Danish data (CoRal v3, Common Voice, FLEURS, FTSpeech, NST) |
+| Runtime | CTranslate2 int8, CPU, via [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) |
+| Disk | ~238 MB (pre-quantized int8) |
 | Speed | ~14× real time on the test machine |
-| License | MIT (Whisper weights and faster-whisper) |
+| License | MIT (weights and faster-whisper) |
+| Accuracy | Model card: WER 0.078 vs 0.234 for stock small on a 21.5 s Danish clip |
 
-`small` is the smallest Whisper size that is reasonably usable for Danish. `base` and
-`tiny` are noticeably worse for Danish and are only recommended if memory is extremely
-tight. The wrapper uses `language="da"`, `beam_size=1`, no internal VAD (the energy VAD
-already segmented the audio), and no previous-text conditioning for short utterances.
+This is the default. It has the same memory footprint and speed as stock Whisper `small`
+but is much better on Danish. The wrapper uses `language="da"`, `beam_size=1`, no
+previous-text conditioning, and **two VADs**: the cheap energy VAD in `audio/vad.py` cuts
+utterances, and faster-whisper's inner Silero VAD removes silence/noise before decoding.
+Without the inner VAD, the fine-tune can hallucinate a word such as “to” on silence or a
+sine tone.
+
+Our 20 s spoken-Wikipedia sample changed from:
+
+```text
+stock:  Det er en optagelse ... Diversionen ... indtaget ... brug af Danielen ... encyklibedi
+danish: Dette er en optagelse ... Det er versionen ... indtalt ... bruger Daniel ... encyklopædi
+```
 
 Alternatives:
 
-- Danish fine-tunes of Whisper (for example from the CoRal project) may improve
-  conversational accuracy; check their size and license.
+- Stock `small` remains available with `--asr-model small`; it is worse for Danish.
+- Larger Danish fine-tunes (for example the CoRal `roest` models) may improve
+  conversational accuracy but cost more memory; check licenses.
+- `medium` / `large-v3-turbo` improve accuracy but push the full stack toward or beyond
+  2 GB.
 - Vosk has small Danish models, but their accuracy and timestamp behavior differ; an
   adapter would be a new backend.
-- Whisper `medium` is better but roughly 1.5 GB of weights, which breaks the budget.
 
 ## Speech synthesis — Piper
 

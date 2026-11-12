@@ -16,7 +16,7 @@ from ..errors import DanglishError, DependencyMissingError
 from ..memory import current_rss_mb
 from ..speech import SpeechTranslator, SpeechUtterance
 from ..tts import DEFAULT_VOICE, PiperTTS
-from .asr import WhisperASR
+from .asr import DEFAULT_ASR_MODEL, WhisperASR
 from .device import (
     channel_index,
     choose_input_channels,
@@ -37,7 +37,7 @@ def run_talk(
     backend: TranslatorBackend,
     config: AppConfig,
     *,
-    asr_model: str = "small",
+    asr_model: str | None = None,
     asr_compute_type: str = "int8",
     tts_voice: str | None = None,
     enable_tts: bool = True,
@@ -54,6 +54,7 @@ def run_talk(
     silence_ms: int = 600,
     language: str = "da",
     context: ContextProfile | None = None,
+    sentence_level: bool = False,
     as_json: bool = False,
     stats: bool = False,
 ) -> None:
@@ -111,14 +112,15 @@ def run_talk(
             ) from exc
 
     try:
+        actual_asr_model = asr_model or DEFAULT_ASR_MODEL
         print(
-            f"loading Whisper {asr_model!r} ({asr_compute_type}); "
+            f"loading Whisper {actual_asr_model!r} ({asr_compute_type}); "
             "the first run downloads the model ...",
             file=sys.stderr,
             flush=True,
         )
         asr = WhisperASR(
-            asr_model,
+            actual_asr_model,
             compute_type=asr_compute_type,
             language=language,
             cpu_threads=config.model.intra_threads or 4,
@@ -138,6 +140,7 @@ def run_talk(
             min_partial_chars=config.stream.min_partial_chars,
             max_pending_chars=config.stream.max_pending_chars,
             context=context if context is not None else get_profile(None),
+            sentence_level=sentence_level,
         )
         vad = EnergyVAD(
             sample_rate=_SAMPLE_RATE,
