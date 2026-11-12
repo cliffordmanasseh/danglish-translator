@@ -93,31 +93,7 @@ function modelPaths(settings) {
     }
   }
 
-  let kokoroModel = null;
-  let kokoroVoices = null;
-  const kokoroCandidates = [
-    path.join(bundled, "kokoro"),
-    path.join(repoRoot, "models", "kokoro"),
-  ];
-  for (const directory of kokoroCandidates) {
-    const model = path.join(directory, "kokoro-v1.0.int8.onnx");
-    const voices = path.join(directory, "voices-v1.0.bin");
-    if (fs.existsSync(model) && fs.existsSync(voices)) {
-      kokoroModel = model;
-      kokoroVoices = voices;
-      break;
-    }
-  }
-
-  return {
-    bundled,
-    useBundled,
-    mt,
-    asr,
-    voice,
-    kokoroModel,
-    kokoroVoices,
-  };
+  return { bundled, useBundled, mt, asr, voice };
 }
 
 function buildBackendArgs(settings) {
@@ -128,18 +104,9 @@ function buildBackendArgs(settings) {
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
-  const ttsBackend = settings.ttsBackend || "kokoro";
   if (settings.ttsEnabled !== false) {
-    args.push("--tts-backend", ttsBackend);
-    if (ttsBackend === "kokoro") {
-      args.push("--tts-voice", settings.ttsVoice || "af_heart");
-      if (models.kokoroModel) args.push("--tts-model", models.kokoroModel);
-      if (models.kokoroVoices) args.push("--tts-voices", models.kokoroVoices);
-    } else if (models.voice) {
-      args.push("--tts-voice", models.voice);
-    } else {
-      args.push("--tts-voice", settings.ttsVoice || "en_GB-alba-medium");
-    }
+    if (models.voice) args.push("--tts-voice", models.voice);
+    else args.push("--tts-voice", settings.voice || "en_GB-alba-medium");
   } else {
     args.push("--no-tts");
   }
@@ -517,7 +484,6 @@ if (!gotLock) {
     ipcMain.handle("app:info", async () => ({
       packaged: app.isPackaged,
       voices: bundledVoiceNames(),
-      kokoroVoices: ["af_heart", "af_bella", "bf_emma", "bm_george"],
     }));
     ipcMain.handle("legal:open", async () => shell.openPath(legalPath()));
 

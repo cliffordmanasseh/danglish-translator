@@ -78,12 +78,9 @@ class ServerConfig:
 
 @dataclass(slots=True)
 class TTSConfig:
-    backend: str = "kokoro"
-    voice: str = "af_heart"
+    voice: str = "en_GB-alba-medium"
 
     def validate(self) -> None:
-        if self.backend not in ("kokoro", "piper"):
-            raise ConfigError("tts.backend must be 'kokoro' or 'piper'")
         if not self.voice.strip():
             raise ConfigError("tts.voice must not be empty")
 

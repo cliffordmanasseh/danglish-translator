@@ -57,14 +57,11 @@ asr = [
   "sounddevice>=0.4.6",
 ]
 # Optional speech output. piper-tts is GPL-3.0-or-later; see NOTICE.
-# kokoro-onnx is MIT but pulls GPL espeak-ng via espeakng-loader.
 tts = [
-  "kokoro-onnx>=0.6,<1; python_version < '3.14'",
   "piper-tts>=1.5,<2",
 ]
 speech = [
   "faster-whisper>=1.0",
-  "kokoro-onnx>=0.6,<1; python_version < '3.14'",
   "piper-tts>=1.5,<2",
   "sounddevice>=0.4.6",
 ]

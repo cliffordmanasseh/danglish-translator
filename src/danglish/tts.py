@@ -1,18 +1,12 @@
-"""Local English speech synthesis.
+"""Local English speech synthesis with Piper.
 
-Kokoro-82M is the default because it sounds substantially more natural than
-Piper while still running on CPU. Piper remains available as a faster, smaller
-fallback. Both are optional dependencies.
-
-Voice/model files are downloaded on first use and cached locally, or supplied by
-the desktop bundle via explicit paths.
+The Piper runtime and voice files are optional. Voices are downloaded on first use
+from the public ``rhasspy/piper-voices`` repository and cached by Hugging Face.
 """
 
 from __future__ import annotations
 
-import os
 import re
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,24 +19,6 @@ DEFAULT_VOICE = "en_GB-alba-medium"
 RECOMMENDED_VOICES = (
     "en_GB-alba-medium",
     "en_GB-cori-high",
-)
-
-DEFAULT_TTS_BACKEND = "kokoro"
-DEFAULT_KOKORO_VOICE = "af_heart"
-KOKORO_VOICES = (
-    "af_heart",
-    "af_bella",
-    "bf_emma",
-    "bm_george",
-)
-KOKORO_MODEL_NAME = "kokoro-v1.0.int8.onnx"
-KOKORO_VOICES_NAME = "voices-v1.0.bin"
-KOKORO_MODEL_URL = (
-    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/"
-    "model-files-v1.1/kokoro-v1.0.int8.onnx"
-)
-KOKORO_VOICES_URL = (
-    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin"
 )
 
 _VOICE_RE = re.compile(
@@ -115,118 +91,6 @@ def ensure_voice(voice: str | Path = DEFAULT_VOICE) -> tuple[Path, Path]:
     return Path(model_path), Path(config_path)
 
 
-def _download(url: str, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    partial = destination.with_suffix(destination.suffix + ".part")
-    print(f"downloading {destination.name} ...", flush=True)
-    try:
-        with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as out:
-            total = int(response.headers.get("Content-Length") or 0)
-            done = 0
-            last_percent = -10
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                out.write(chunk)
-                done += len(chunk)
-                if total:
-                    percent = int(done * 100 / total)
-                    if percent >= last_percent + 10:
-                        print(f"  {percent}%", flush=True)
-                        last_percent = percent
-        partial.replace(destination)
-    except Exception as exc:
-        partial.unlink(missing_ok=True)
-        raise DanglishError(f"could not download {destination.name}: {exc}") from exc
-
-
-def ensure_kokoro_files(
-    model_path: str | Path | None = None,
-    voices_path: str | Path | None = None,
-) -> tuple[Path, Path]:
-    """Return local paths to the Kokoro ONNX model and voices bundle."""
-
-    model = Path(model_path) if model_path else None
-    voices = Path(voices_path) if voices_path else None
-
-    if model is None or voices is None:
-        local = Path(os.environ.get("DANGLISH_KOKORO_DIR", "models/kokoro"))
-        cache = (
-            Path(
-                os.environ.get(
-                    "DANGLISH_CACHE",
-                    str(Path.home() / ".cache" / "danglish"),
-                )
-            )
-            / "kokoro"
-        )
-        base = local if local.is_dir() else cache
-        if model is None:
-            model = base / KOKORO_MODEL_NAME
-        if voices is None:
-            voices = base / KOKORO_VOICES_NAME
-
-    if not model.is_file():
-        _download(KOKORO_MODEL_URL, model)
-    if not voices.is_file():
-        _download(KOKORO_VOICES_URL, voices)
-    return model, voices
-
-
-class KokoroTTS:
-    """Kokoro-82M ONNX voice wrapper returning mono float32 audio."""
-
-    def __init__(
-        self,
-        voice: str = DEFAULT_KOKORO_VOICE,
-        *,
-        model_path: str | Path | None = None,
-        voices_path: str | Path | None = None,
-        speed: float = 1.0,
-    ) -> None:
-        try:
-            from kokoro_onnx import Kokoro
-        except ImportError as exc:
-            raise DependencyMissingError(
-                "the natural English voice needs kokoro-onnx.\n"
-                "  uv:  uv sync --extra speech\n"
-                '  pip: pip install "danglish[speech]"'
-            ) from exc
-
-        self.voice_name = voice
-        self.speed = speed
-        self.sample_rate = 24_000
-        self.lang = "en-gb" if voice.startswith("b") else "en-us"
-        model, voices = ensure_kokoro_files(model_path, voices_path)
-        try:
-            self._kokoro = Kokoro(str(model), str(voices))
-        except Exception as exc:
-            raise DanglishError(f"could not load Kokoro voice model: {exc}") from exc
-
-    def __repr__(self) -> str:
-        return f"KokoroTTS(voice={self.voice_name!r}, sample_rate={self.sample_rate})"
-
-    def synthesize(self, text: str) -> np.ndarray:
-        text = text.strip()
-        if not text:
-            return np.zeros(0, dtype=np.float32)
-        audio, sample_rate = self._kokoro.create(
-            text,
-            voice=self.voice_name,
-            speed=self.speed,
-            lang=self.lang,
-        )
-        self.sample_rate = int(sample_rate)
-        return np.asarray(audio, dtype=np.float32)
-
-    def warmup(self) -> None:
-        self.synthesize("Ready.")
-
-    def close(self) -> None:
-        self._kokoro = None  # type: ignore[assignment]
-
-
 class PiperTTS:
     """Piper voice wrapper returning mono float32 audio."""
 
@@ -283,35 +147,3 @@ class PiperTTS:
 
     def close(self) -> None:
         self._voice = None  # type: ignore[assignment]
-
-
-def create_tts(
-    backend: str = DEFAULT_TTS_BACKEND,
-    voice: str | None = None,
-    *,
-    model_path: str | Path | None = None,
-    voices_path: str | Path | None = None,
-    speed: float = 1.0,
-):
-    """Create a TTS backend by name.
-
-    Voice names are backend-specific. If a default voice from the other backend is
-    passed (common when switching ``--tts-backend``), substitute the appropriate
-    default rather than failing.
-    """
-
-    backend = (backend or DEFAULT_TTS_BACKEND).lower()
-    if backend == "kokoro":
-        if not voice or voice == DEFAULT_VOICE or _VOICE_RE.fullmatch(str(voice)):
-            voice = DEFAULT_KOKORO_VOICE
-        return KokoroTTS(
-            voice,
-            model_path=model_path,
-            voices_path=voices_path,
-            speed=speed,
-        )
-    if backend == "piper":
-        if not voice or voice in KOKORO_VOICES:
-            voice = DEFAULT_VOICE
-        return PiperTTS(voice)
-    raise DanglishError(f"unknown TTS backend {backend!r}; choose 'kokoro' or 'piper'")

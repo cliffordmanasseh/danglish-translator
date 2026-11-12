@@ -10,8 +10,7 @@ costs, not to promise a specific laptop's performance.
 - CTranslate2 4.9.0
 - OPUS-MT da→en converted to int8, beam size 2
 - faster-whisper 1.2.1, `lucasw89/whisper-small-danish-ct2-int8`, int8, 4 threads
-- kokoro-onnx 0.6.1, Kokoro-82M int8 + `af_heart`, ONNX Runtime
-- piper-tts 1.8.0, `en_GB-alba-medium` (fast fallback), ONNX Runtime
+- piper-tts 1.8.0, `en_GB-alba-medium`, ONNX Runtime
 - RSS measured with `danglish bench` / `scripts/speech_smoke.py` (process resident set)
 
 ## Text translation
@@ -74,9 +73,9 @@ DA  Dette er en optagelse af artiklen Solen fra Wikipedia. Det er versionen fra
 EN  This is a recording of the article The Sun from Wikipedia. It is the version from
     10 December 2008, recorded on 11 December 2008 by user Daniel. The sun from
     Wikipedia, the free encyclopedia of da.wikia.dk
-wrote english.wav (16.06s)
-asr 1.45s  mt 0.16s  tts 5.98s  wall 7.59s
-RSS 1170 MB  peak 1170 MB
+wrote english.wav (15.67s)
+asr 1.46s  mt 0.15s  tts 0.38s  wall 2.00s
+RSS 891 MB  peak 891 MB
 ```
 
 Switching from stock Whisper small to the Danish fine-tune changed the transcript from
@@ -89,15 +88,11 @@ the 77M model scored **BLEU 40.82 / chrF++ 59.58**, while
 `opus-mt-tc-big-gmq-en` int8 scored **40.61 / 59.51** at roughly half the throughput. The
 ASR was the real bottleneck for speech quality.
 
-Peak RSS for the full Kokoro speech stack was **~1.17 GB** for one long turn. During ASR
-model load, CTranslate2 briefly allocates extra memory while quantizing the Whisper
-weights; the peak is higher than the resident set immediately after loading. The
-Piper fallback stack is around 0.9 GB.
+Peak RSS for the full speech stack was **~0.9 GB** for one long turn. During ASR model
+load, CTranslate2 briefly allocates extra memory while quantizing the Whisper weights;
+the peak is higher than the resident set immediately after loading.
 
-### Multi-turn session (Piper fallback)
-
-These timings use the fast Piper fallback; Kokoro adds several seconds per turn but is
-much more natural.
+### Multi-turn session
 
 Running the same 20-second clip through the real energy VAD produced five turns
 (3.54 s, 7.17 s, 1.05 s, 3.00 s, 2.70 s). Processing all five and synthesizing speech took
@@ -124,33 +119,33 @@ hallucinated words on silence and noise without trimming the utterance.
 
 The parallel runtime (`--full-duplex`) does not load extra models: capture, translation,
 and playback overlap, but the same ASR/MT/TTS instances are shared and audio queues are
-bounded. Peak RSS is therefore the same ~1.2 GB with Kokoro; the trade-off is CPU
-contention and TTS time, which is significant on a small CPU. Re-measure on the target
-machine if you run ASR and TTS concurrently on a 2-core CPU.
+bounded. Peak RSS is therefore the same ~1.0 GB; the trade-off is CPU contention, which
+is modest because playback is cheap. Re-measure on the target machine if you run ASR and
+TTS concurrently on a 2-core CPU.
 
 ### Turning the numbers into perceived latency
 
-For a 20-second utterance with Kokoro, processing takes ~7.6 seconds, of which ~6 seconds
-is synthesis of ~16 seconds of English audio. For a short 3–5 second turn, the ASR fixed
-cost is ~0.8–1.1 seconds and Kokoro synthesis is roughly 1–2 seconds, so “stop speaking →
-English audio” is roughly **2–4 seconds**. Piper mode is closer to 1–2 seconds.
+For a 20-second utterance, processing takes ~2.0 seconds. For a short 3–5 second
+utterance, ASR typically takes 0.8–1.1 seconds because of Whisper's fixed overhead. Add
+the 600 ms VAD silence threshold and
+the MT/TTS time; the typical “stop speaking → English audio” latency is roughly
+**1–2 seconds**.
 
 Model load after a warm cache, measured in a fresh process:
 
 ```text
-ASR load    0.38 s   RSS 359 MB
-Kokoro load ~1.1 s   RSS 238 MB
+ASR load   0.38 s   RSS 359 MB
+TTS load   1.80 s   RSS 485 MB
+TTS warmup 0.04 s
 ```
 
-The first run additionally downloads ~238 MB (pre-quantized ASR), ~142 MB (Kokoro model
-and voices), ~60 MB (Piper fallback), and ~77 MB (MT), and performs a one-time CT2
-conversion with torch.
+The first run additionally downloads ~238 MB (pre-quantized ASR), ~60 MB (voice), and ~77 MB (MT), and
+performs a one-time CT2 conversion with torch.
 
 ## Caveats
 
 - CPU frequency, core count, thermal throttling, and memory bandwidth all matter.
 - ASR speed depends heavily on utterance length; Whisper processes 30-second windows.
-- TTS speed depends on the engine, sentence length, and ONNX Runtime warm-up. Kokoro is
-  roughly 2.6× real time on the reference CPU; Piper is 20–30× real time.
+- TTS speed depends on sentence length and whether ONNX Runtime has warmed up.
 - RSS is process-level; shared libraries may be counted differently depending on how you
   measure. Use `danglish bench` and `scripts/speech_smoke.py` on your own machine.

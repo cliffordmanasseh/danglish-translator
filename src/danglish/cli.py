@@ -34,7 +34,7 @@ def _add_context_option(parser: argparse.ArgumentParser) -> None:
         choices=profile_names(),
         default="general",
         help=(
-            "terminology profile; 'sermon' prefers church terminology "
+            "translation context profile; 'sermon' prefers church terminology "
             "(post-processing, not model instructions)"
         ),
     )
@@ -327,11 +327,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             config,
             asr_model=args.asr_model,
             asr_compute_type=args.asr_compute_type,
-            tts_backend=args.tts_backend,
             tts_voice=args.tts_voice,
-            tts_model=str(args.tts_model) if args.tts_model else None,
-            tts_voices=str(args.tts_voices) if args.tts_voices else None,
-            tts_speed=args.tts_speed,
             enable_tts=not args.no_tts,
             full_duplex=args.full_duplex,
             input_device=args.input_device,
@@ -663,21 +659,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--asr-compute-type", default="int8", choices=COMPUTE_TYPES, help="ASR compute type"
     )
     talk.add_argument(
-        "--tts-backend",
-        choices=["kokoro", "piper"],
-        help="speech engine (default: from config, kokoro)",
-    )
-    talk.add_argument(
         "--tts-voice",
-        help=(
-            "voice name (Kokoro default af_heart; Piper default en_GB-alba-medium) "
-            "or a local Piper .onnx path"
-        ),
-    )
-    talk.add_argument("--tts-model", type=Path, help="Kokoro ONNX model path")
-    talk.add_argument("--tts-voices", type=Path, help="Kokoro voices bundle path")
-    talk.add_argument(
-        "--tts-speed", type=float, default=1.0, help="Kokoro speaking speed (default: 1.0)"
+        help="Piper voice name or local .onnx path (default: from config, en_GB-alba-medium)",
     )
     talk.add_argument(
         "--no-tts", action="store_true", help="print the English translation instead of speaking it"
@@ -824,7 +807,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     contexts = subparsers.add_parser(
         "contexts",
-        help="list terminology profiles",
+        help="list translation context profiles",
         description="List the built-in context/terminology profiles.",
     )
     contexts.add_argument("--json", action="store_true", help="emit JSON")

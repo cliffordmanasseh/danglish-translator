@@ -25,14 +25,8 @@ OpenAI Whisper "small"
   License: MIT
   https://github.com/openai/whisper
 
-Kokoro-82M
-  English speech synthesis model (default TTS)
-  License: Apache-2.0
-  https://huggingface.co/hexgrad/Kokoro-82M
-  ONNX packaging: https://github.com/thewh1teagle/kokoro-onnx (MIT)
-
 Piper voice en_GB-alba-medium
-  English speech synthesis fallback voice from rhasspy/piper-voices
+  English speech synthesis voice from rhasspy/piper-voices
   License: CC BY 4.0
   Dataset: https://datashare.ed.ac.uk/handle/10283/3270
   Voice repository: https://huggingface.co/rhasspy/piper-voices
@@ -43,11 +37,7 @@ OPTIONAL RUNTIME AND PYTHON DEPENDENCIES
 CTranslate2                                  MIT
 SentencePiece                               Apache-2.0
 faster-whisper                              MIT
-kokoro-onnx                                 MIT (optional)
 piper-tts                                   GPL-3.0-or-later (optional)
-phonemizer                                  GPL-3.0-or-later (optional)
-espeak-ng                                   GPL-3.0-or-later (optional)
-espeakng-loader                             packaging helper for espeak-ng
 ONNX Runtime                                MIT
 PyAV (av)                                   BSD-3-Clause
 sounddevice                                 MIT
@@ -60,17 +50,16 @@ Transformers                                Apache-2.0  (convert extra only)
 
 LICENSING NOTES
 ---------------
-kokoro-onnx is MIT, but it depends on phonemizer and espeak-ng (via espeakng-loader),
-which are GPL-3.0-or-later. piper-tts is also GPL-3.0-or-later. These are optional
-speech-output dependencies; the Apache-2.0 core (text translation, server, ASR, and the
-interfaces in this repository) does not require them. If you distribute a combined
-environment or binary that includes them, comply with the GPL terms for those components.
-Users who need a permissively licensed speech pipeline should replace the TTS stage or
-install the components separately after reviewing their obligations.
+piper-tts is an optional speech-output dependency and is licensed under the GNU
+General Public License v3.0 or later. The Apache-2.0 core (text translation, server,
+ASR, and the interfaces in this repository) does not require it. If you distribute a
+combined environment or binary that includes piper-tts, comply with the GPL terms for
+that component. Users who need a permissively licensed speech pipeline should replace
+the TTS stage or install the components separately after reviewing their obligations.
 
-The `speech` extra installs both Kokoro and Piper plus faster-whisper and sounddevice.
-The `tts` extra installs both TTS engines; the `asr` extra installs only ASR/audio I/O.
-Model and voice licenses are independent of the Python package licenses.
+The `speech` extra installs piper-tts. The `tts` extra installs only piper-tts; the
+`asr` extra installs faster-whisper and sounddevice. Model and voice licenses are
+independent of the Python package licenses.
 
 This notice is informational and is not legal advice. Verify the licenses of any model,
 voice, or dependency you redistribute.

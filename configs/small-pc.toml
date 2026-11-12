@@ -20,6 +20,4 @@ host = "127.0.0.1"
 port = 8765
 
 [tts]
-# On a 2–4 core machine, Piper is considerably faster than Kokoro.
-backend = "piper"
 voice = "en_GB-alba-medium"

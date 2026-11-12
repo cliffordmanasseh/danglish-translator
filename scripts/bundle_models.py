@@ -26,13 +26,7 @@ from danglish.models import (
     ensure_model,
     model_is_ready,
 )
-from danglish.tts import (
-    DEFAULT_VOICE,
-    KOKORO_MODEL_NAME,
-    KOKORO_VOICES_NAME,
-    ensure_kokoro_files,
-    ensure_voice,
-)
+from danglish.tts import DEFAULT_VOICE, ensure_voice
 
 WHISPER_REPO = "lucasw89/whisper-small-danish-ct2-int8"
 WHISPER_FILES = [
@@ -118,44 +112,6 @@ def bundle_asr(output: Path, *, repo_id: str, force: bool) -> Path:
     return destination
 
 
-def bundle_kokoro(output: Path, *, force: bool) -> tuple[Path, Path]:
-    destination = output / "kokoro"
-    model = destination / KOKORO_MODEL_NAME
-    voices = destination / KOKORO_VOICES_NAME
-    local = Path("models/kokoro")
-
-    if force:
-        model.unlink(missing_ok=True)
-        voices.unlink(missing_ok=True)
-
-    if model.is_file() and voices.is_file():
-        print(f"Kokoro: reusing {destination} ({directory_size_mb(destination):,.0f} MB)")
-    else:
-        destination.mkdir(parents=True, exist_ok=True)
-        local_model = local / KOKORO_MODEL_NAME
-        local_voices = local / KOKORO_VOICES_NAME
-        if local_model.is_file() and local_voices.is_file():
-            print(f"Kokoro: copying {local} ...")
-            _copy_file(local_model, model)
-            _copy_file(local_voices, voices)
-        else:
-            print("Kokoro: downloading model and voices ...")
-            model, voices = ensure_kokoro_files(model, voices)
-        (destination / "README.md").write_text(
-            "# Kokoro-82M\n\n"
-            "- Model: https://huggingface.co/hexgrad/Kokoro-82M (Apache-2.0 weights)\n"
-            "- ONNX packaging: https://github.com/thewh1teagle/kokoro-onnx (MIT)\n"
-            "- Default voice: af_heart (US English).\n"
-            "- espeak-ng/phonemizer are GPL-3.0-or-later; see the app NOTICE.\n",
-            encoding="utf-8",
-        )
-        print(
-            f"Kokoro: {model.name} + {voices.name} "
-            f"({(model.stat().st_size + voices.stat().st_size) / (1024 * 1024):,.0f} MB)"
-        )
-    return model, voices
-
-
 def bundle_voice(output: Path, *, voice: str, force: bool) -> Path:
     destination = output / "voices"
     model_name = Path(voice).name
@@ -225,7 +181,6 @@ def main() -> int:
         force=args.force,
     )
     asr_path = bundle_asr(output, repo_id=args.whisper_repo, force=args.force)
-    kokoro_model, kokoro_voices = bundle_kokoro(output, force=args.force)
     voice_path = bundle_voice(output, voice=args.voice, force=args.force)
 
     manifest = {
@@ -243,19 +198,11 @@ def main() -> int:
             "license": "MIT",
         },
         "tts": {
-            "backend": "kokoro",
-            "voice": "af_heart",
-            "model": str(kokoro_model.relative_to(output)),
-            "voices": str(kokoro_voices.relative_to(output)),
-            "model_license": "Apache-2.0",
-            "runtime_license": "MIT (kokoro-onnx); GPL-3.0-or-later (espeak-ng/phonemizer)",
-            "piper_fallback": {
-                "runtime": "piper-tts",
-                "runtime_license": "GPL-3.0-or-later",
-                "voice": args.voice,
-                "path": str(voice_path.relative_to(output)),
-                "voice_license": "CC BY 4.0 (en_GB-alba-medium; check other voices)",
-            },
+            "runtime": "piper-tts",
+            "runtime_license": "GPL-3.0-or-later",
+            "voice": args.voice,
+            "path": str(voice_path.relative_to(output)),
+            "voice_license": "CC BY 4.0 (en_GB-alba-medium; check other voices)",
         },
     }
     (output / "manifest.json").write_text(

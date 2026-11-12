@@ -24,7 +24,7 @@ from danglish.backends import create_backend
 from danglish.config import load_config
 from danglish.memory import current_rss_mb, peak_rss_mb
 from danglish.speech import SpeechTranslator
-from danglish.tts import create_tts
+from danglish.tts import DEFAULT_VOICE, PiperTTS
 
 
 def main() -> int:
@@ -34,30 +34,19 @@ def main() -> int:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL)
-    parser.add_argument("--tts-backend", choices=["kokoro", "piper"])
-    parser.add_argument("--voice", help="TTS voice name (backend-specific)")
-    parser.add_argument("--tts-model", type=Path, help="Kokoro ONNX model path")
-    parser.add_argument("--tts-voices", type=Path, help="Kokoro voices bundle path")
-    parser.add_argument("--tts-speed", type=float, default=1.0)
+    parser.add_argument("--voice")
     args = parser.parse_args()
 
     audio, sample_rate = read_wav(args.input)
     config = load_config(args.config)
     if args.model_path is not None:
         config.model.path = args.model_path
-    tts_backend = args.tts_backend or config.tts.backend
-    voice = args.voice or config.tts.voice
+    voice = args.voice or config.tts.voice or DEFAULT_VOICE
 
     print("loading models ...", file=sys.stderr, flush=True)
     backend = create_backend(config)
     asr = WhisperASR(args.asr_model, compute_type="int8", cpu_threads=4)
-    tts = create_tts(
-        tts_backend,
-        voice,
-        model_path=args.tts_model,
-        voices_path=args.tts_voices,
-        speed=args.tts_speed,
-    )
+    tts = PiperTTS(voice)
     speech = SpeechTranslator(asr, backend, tts)
 
     started = time.perf_counter()

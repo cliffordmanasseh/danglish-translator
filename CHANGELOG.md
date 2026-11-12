@@ -20,12 +20,6 @@ All notable changes to this project are documented here. The format follows
 - Speech translation now translates the whole ASR turn by default, preserving context
   across sentences; `--sentence-level` restores per-sentence translation. This fixed
   context-dependent errors such as “indtalt” → “entered” vs “recorded”.
-- Kokoro-82M (Apache-2.0, 114 MB int8 + 28 MB voices) is the new default English voice,
-  with much more natural prosody than Piper. Piper remains a one-switch fast fallback.
-  Kokoro is roughly 2.6× real time on the test CPU and pushes the full speech stack to
-  ~1.17 GB; Piper mode stays around 0.9 GB.
-- Relabelled the “Context” selector to “Terminology” and documented that it performs
-  conservative term substitution, not model-level context conditioning.
 - Parallel audio runtime with separate capture/VAD, translation, and playback threads and
   bounded queues. `--full-duplex` keeps listening while English audio plays for isolated
   input/output setups; half-duplex remains the default for laptop speakers.

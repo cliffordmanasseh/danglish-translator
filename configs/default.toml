@@ -22,9 +22,7 @@ host = "127.0.0.1"
 port = 8765
 
 [tts]
-# kokoro: natural-sounding Kokoro-82M (~142 MB of model/voices).
-# piper: much faster, smaller, but more robotic.
-backend = "kokoro"
-# Kokoro: af_heart (US), af_bella (US), bf_emma (UK), bm_george (UK).
-# Piper: en_GB-alba-medium, en_GB-cori-high.
-voice = "af_heart"
+# Piper voice used by `danglish talk` and downloaded on first use.
+# en_GB-alba-medium: 63 MB, CC BY 4.0.
+# en_GB-cori-high: 114 MB, public domain.
+voice = "en_GB-alba-medium"
