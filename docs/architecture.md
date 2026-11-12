@@ -29,10 +29,10 @@ diarization, document-level context, and cloud-scale throughput. Parallel turn p
        │
        ▼
 ┌──────────────┐  speech starts after 3 consecutive speech frames
-│ EnergyVAD    │  utterance ends after 600 ms of silence (or 15 s max)
+│ EnergyVAD    │  chunk ends after 300 ms silence (or 4 s max)
 │ + pre-roll   │  keeps 500 ms of pre-roll and 150 ms of tail
 └──────┬───────┘
-       │  utterance audio (~1–15 s)
+       │  chunk audio (~0.3–4 s)
        ▼
 ┌──────────────┐  faster-whisper "small", int8, language="da"
 │ Whisper ASR  │  Danish small, inner Silero VAD, no previous-text conditioning
@@ -160,25 +160,25 @@ cannot grow memory without bound; the callback drops frames rather than blocking
 
 ### Half-duplex and full-duplex
 
-A `PlaybackGate` tracks the number of audio segments registered for playback. In the
-default **half-duplex** mode:
+A `PlaybackGate` tracks the number of audio segments registered for playback. **Full-duplex
+is the default:**
+
+- capture never pauses for playback;
+- the VAD state is not reset when playback ends;
+- a new chunk can be recognized and translated while the previous English audio is still
+  playing, and its audio queues behind the current audio.
+
+With `--half-duplex`:
 
 - the capture gate closes while any English audio is pending or playing;
 - capture callbacks drop frames during that window;
 - when the last segment finishes, the VAD loop drains stale frames and resets the VAD, so
   the translator does not transcribe its own speaker output.
 
-With `--full-duplex`:
-
-- capture never pauses for playback;
-- the VAD state is not reset when playback ends;
-- a new utterance can be recognized and translated while the previous English audio is
-  still playing, and its audio queues behind the current audio.
-
-Full-duplex is intended for isolated input/output hardware or an external echo canceller.
-It is not word-level simultaneous interpreting: the VAD still waits for 600 ms of silence
-(or 15 s maximum) and Whisper transcribes whole utterances. Streaming ASR with partial
-hypotheses is the next latency step.
+Full-duplex assumes isolated input/output hardware or an external echo canceller; laptop
+speakers should use half-duplex. It is not word-level simultaneous interpreting: the VAD
+waits for 300 ms of silence or 4 s of continuous speech, and Whisper transcribes each
+chunk. Streaming ASR with partial hypotheses is the next latency step.
 
 The web server is asynchronous around synchronous CPU work: translation calls run in
 `asyncio.to_thread`, and each WebSocket session has a lock so its pipeline mutations are

@@ -71,6 +71,17 @@ def test_stereo_input_is_downmixed() -> None:
     assert vad.push(stereo) == []
 
 
+def test_max_utterance_forces_a_chunk() -> None:
+    vad = EnergyVAD(max_utterance_s=1.0, end_silence_ms=5000, min_utterance_s=0.2)
+    completed: list[np.ndarray] = []
+    for frame in _speech(60):  # 1.8 seconds of continuous speech
+        completed.extend(vad.push(frame))
+
+    assert completed
+    duration = len(completed[0]) / SAMPLE_RATE
+    assert 0.9 <= duration <= 1.2
+
+
 def test_reset_drops_in_progress_audio() -> None:
     vad = EnergyVAD(end_silence_ms=5000, min_utterance_s=0.2)
     for frame in _speech(30):

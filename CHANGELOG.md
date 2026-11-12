@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project uses semantic versioning.
 
+## [Unreleased]
+
+### Changed
+
+- Low-latency chunking: cut after 300 ms of silence or 4 s of continuous speech (was
+  600 ms / 15 s), so English audio starts within roughly two seconds of each chunk instead
+  of waiting for a long monologue to end.
+- Full-duplex is now the default; `--half-duplex` (or the desktop toggle) mutes the
+  microphone during playback for laptop speakers.
+- The desktop app shows a “Translating N s of speech…” status as soon as a chunk closes,
+  and the context selector is labelled “Terminology”.
+
 ## [0.1.0] — 2026-11-11
 
 ### Added

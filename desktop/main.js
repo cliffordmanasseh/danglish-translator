@@ -113,7 +113,7 @@ function buildBackendArgs(settings) {
 
   args.push("--context", settings.context || "general");
 
-  if (settings.fullDuplex) args.push("--full-duplex");
+  args.push(settings.fullDuplex === false ? "--half-duplex" : "--full-duplex");
   if (settings.inputDevice) args.push("--input-device", String(settings.inputDevice));
   if (settings.ttsEnabled !== false && settings.outputDevice) {
     args.push("--output-device", String(settings.outputDevice));
@@ -130,6 +130,9 @@ function buildBackendArgs(settings) {
   }
   if (settings.silenceMs !== undefined) {
     args.push("--silence-ms", String(settings.silenceMs));
+  }
+  if (settings.maxSegmentS !== undefined) {
+    args.push("--max-segment-s", String(settings.maxSegmentS));
   }
   if (settings.minEnergy !== undefined) {
     args.push("--min-energy", String(settings.minEnergy));

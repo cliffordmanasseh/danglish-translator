@@ -41,7 +41,7 @@ def run_talk(
     asr_compute_type: str = "int8",
     tts_voice: str | None = None,
     enable_tts: bool = True,
-    full_duplex: bool = False,
+    full_duplex: bool = True,
     input_device: int | str | None = None,
     output_device: int | str | None = None,
     input_channel: int = 0,
@@ -51,7 +51,8 @@ def run_talk(
     input_channels: int | None = None,
     output_channels: int | None = None,
     min_energy: float = 0.006,
-    silence_ms: int = 600,
+    silence_ms: int = 300,
+    max_segment_s: float = 4.0,
     language: str = "da",
     context: ContextProfile | None = None,
     sentence_level: bool = False,
@@ -142,10 +143,13 @@ def run_talk(
             context=context if context is not None else get_profile(None),
             sentence_level=sentence_level,
         )
+        if not 1.0 <= max_segment_s <= 30.0:
+            raise DanglishError("max-segment-s must be between 1 and 30 seconds")
         vad = EnergyVAD(
             sample_rate=_SAMPLE_RATE,
             frame_ms=_FRAME_MS,
             end_silence_ms=silence_ms,
+            max_utterance_s=max_segment_s,
             min_energy=min_energy,
         )
 
@@ -204,12 +208,22 @@ def run_talk(
         def print_error(message: str) -> None:
             print(f"talk: {message}", file=sys.stderr, flush=True)
 
+        def print_speech(duration: float) -> None:
+            if as_json:
+                print(
+                    json.dumps({"type": "speech", "duration_s": round(duration, 2)}),
+                    flush=True,
+                )
+            else:
+                print(f"speech: {duration:.1f}s", file=sys.stderr, flush=True)
+
         runtime = TalkRuntime(
             speech,
             play,
             vad,
             full_duplex=full_duplex,
             on_utterance=print_result,
+            on_speech=print_speech,
             on_error=print_error,
             sample_rate=_SAMPLE_RATE,
         )
@@ -231,6 +245,11 @@ def run_talk(
             file=sys.stderr,
             flush=True,
         )
+        print(
+            f"chunking: {silence_ms} ms silence / {max_segment_s:.1f}s max segment",
+            file=sys.stderr,
+            flush=True,
+        )
         if full_duplex:
             print(
                 "full-duplex: listening continues while English audio plays. "
@@ -240,7 +259,7 @@ def run_talk(
         else:
             print(
                 "half-duplex: the microphone is muted while English audio plays. "
-                "Use --full-duplex with isolated I/O to keep listening.",
+                "Full-duplex is the default with isolated I/O.",
                 file=sys.stderr,
             )
         print("listening — speak Danish, Ctrl-C to stop.", file=sys.stderr, flush=True)

@@ -55,7 +55,7 @@
         </div>
 
         <div class="control">
-          <label class="label" for="contextSelect">Context</label>
+          <label class="label" for="contextSelect">Terminology</label>
           <select id="contextSelect"></select>
           <p class="hint" id="contextHint">Neutral everyday translation.</p>
         </div>
@@ -175,7 +175,11 @@
           </label>
           <label>
             <span>Silence before cutting (ms)</span>
-            <input id="silenceMs" type="number" min="200" step="50" />
+            <input id="silenceMs" type="number" min="150" step="50" />
+          </label>
+          <label>
+            <span>Max chunk (seconds)</span>
+            <input id="maxSegmentS" type="number" min="1" max="30" step="0.5" />
           </label>
           <label>
             <span>VAD threshold</span>

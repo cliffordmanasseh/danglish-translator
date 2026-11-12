@@ -108,9 +108,9 @@ The UI exposes input/output device names plus input/output channel numbers. Pref
 names over indices — PortAudio indices can change when PipeWire nodes are reordered. In
 the app, click **Audio & voice settings → Refresh devices** after plugging in an interface.
 
-For a UAD Volt 4, input 1 is normally channel 0 and input 2 is channel 1. Use the same
-`full-duplex` toggle as the CLI. Alternatively, run `danglish audio-check` in a terminal
-to see per-channel RMS levels and play a test tone.
+For a UAD Volt 4, input 1 is normally channel 0 and input 2 is channel 1. Full-duplex is
+the default; turn it off in the sidebar for laptop speakers. Alternatively, run
+`danglish audio-check` in a terminal to see per-channel RMS levels and play a test tone.
 
 ## Troubleshooting
 

@@ -9,7 +9,8 @@ for small PCs, and the whole speech-to-speech stack fits in well under 2 GB of m
 > **Status:** early but working. The text pipeline and the audio-to-audio path are both
 > implemented and tested end to end. Capture, translation, and playback run in parallel;
 > it is a turn-based interpreter (speak, pause, hear), not word-level simultaneous
-> interpreting. `--full-duplex` keeps listening while the English audio plays.
+> interpreting. Full-duplex is on by default: capture continues while the English audio
+> plays. Use `--half-duplex` for laptop speakers.
 
 ## Demo
 
@@ -23,8 +24,8 @@ uv run --no-sync danglish fetch
 # 3. Talk: Danish microphone in, English voice out
 uv run --no-sync danglish talk
 
-# With isolated input/output hardware (no acoustic feedback):
-uv run --no-sync danglish talk --full-duplex
+# Full-duplex is the default; use --half-duplex with laptop speakers:
+uv run --no-sync danglish talk
 ```
 
 The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), a Piper English
@@ -65,7 +66,7 @@ sudo apt install libportaudio2
 ![Danglish desktop app](docs/screenshot-desktop.png)
 
 The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
-start/stop control, live Danish/English captions, context profiles, full-duplex mode, and
+start/stop control, live Danish/English captions, terminology profiles, full-duplex mode, and
 audio-device/channel settings. It bundles the Python sidecar and all three models.
 
 For development:
@@ -122,16 +123,17 @@ uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no micr
                                                                   speaker
 ```
 
-The microphone path is segmented by a small energy VAD. When you stop speaking for
-600 ms, the utterance goes through local Whisper ASR, the sentence-aware translation
-pipeline, and a local Piper voice. English audio starts playing as soon as the turn is
+The microphone path is segmented by a small energy VAD. It cuts after **300 ms of
+silence**, or after **4 seconds of continuous speech**, whichever comes first. Each chunk
+goes through local Whisper ASR, translation, and a local Piper voice, so audio starts
+within roughly two seconds of a chunk closing instead of waiting for a long monologue to
+end. English audio starts playing as soon as the turn is
 translated.
 
-Capture/VAD, ASR→MT→TTS, and playback run on separate threads. By default the microphone
-is muted during playback (half-duplex) to avoid feedback with laptop speakers. With
-isolated audio I/O or an external echo canceller, pass `--full-duplex`: capture and
-translation continue while English audio plays, and new turns queue behind the audio that
-is currently playing. The models are still used by a single translation worker, so
+Capture/VAD, ASR→MT→TTS, and playback run on separate threads. **Full-duplex is the
+default**: capture and translation continue while English audio plays, and new turns
+queue behind the audio currently playing. Use `--half-duplex` (or the desktop toggle) with
+laptop speakers to mute the mic during playback. The models are still used by a single translation worker, so
 memory does not increase; on a very small CPU, concurrent work can add a little latency.
 
 The text path uses the same translation core and adds a debounced partial preview of the
@@ -191,8 +193,9 @@ Measured turn latency for a 20-second Danish audio clip:
 | Piper speech synthesis | 0.38 s | ~30× real time |
 | **Total** | **~2.0 s** | for 20 s of input |
 
-With the default 600 ms end-of-speech pause, expect roughly **1–2 seconds from “stop
-speaking” to English audio** for short utterances, plus playback time. The first run
+With the default 300 ms pause / 4 s maximum chunk, expect roughly **2 seconds from the end
+of a chunk to English audio**: ~1.5 s ASR + ~0.15 s MT + ~0.3 s Piper TTS. You can lower
+`--max-segment-s` for even tighter sync, at some cost in translation context. The first run
 downloads models; subsequent process startups load them in a few seconds.
 
 The 20-second clip above was one continuous utterance. When the VAD splits the same clip
@@ -220,7 +223,7 @@ loading.
 
 ```text
 danglish talk                     microphone → Danish ASR → English speech (alias: mic)
-danglish talk --full-duplex       keep listening while English audio plays (isolated I/O)
+danglish talk                     full-duplex by default; --half-duplex for speakers
 danglish talk --no-tts            microphone → Danish ASR → English text only
 danglish talk --list-devices      list audio devices
 danglish audio-check              list devices, measure input levels, play a test tone
@@ -229,7 +232,7 @@ danglish translate "text" | -f file | -        one-shot text translation
 danglish repl                     interactive line-by-line text translation
 danglish stream                   incremental stdin → stdout, with partials
 danglish serve                    local text WebSocket demo + web UI
-danglish contexts                 list translation context profiles
+danglish contexts                 list terminology profiles
 danglish fetch                    download + convert the OPUS-MT model
 danglish doctor                   environment, dependency, and memory checks
 danglish bench                    text latency and peak-RSS benchmark
@@ -243,7 +246,7 @@ danglish talk --asr-model small --tts-voice en_GB-cori-high
 danglish talk --min-energy 0.008 --silence-ms 500
 danglish talk --sentence-level    # lower latency, less context
 danglish talk --input-device "Volt 4" --output-device "Volt 4"
-danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4"
+danglish talk --input-device "Volt 4" --output-device "Volt 4"
 danglish talk --input-channel 1     # microphone on UAD input 2
 danglish talk --stats               # ASR/MT/TTS timings per turn
 danglish talk --json                # machine-readable turns, still speaks
@@ -256,14 +259,12 @@ Every option can be overridden on the command line (`--model-path`, `--compute-t
 
 ## Speech quality and limitations
 
-- **It is turn-based.** The VAD waits for 600 ms of silence before cutting the utterance,
-  and Whisper transcribes the whole utterance. There is no partial ASR, so very long
-  monologues wait for the full segment (max 15 s).
-- **Half-duplex by default, full-duplex available.** The mic is muted during playback by
-  default to protect laptop users. With isolated input/output, `--full-duplex` never
-  mutes: capture and ASR/MT/TTS continue while the previous English audio plays.
-  Playback is still serialized, so new translations queue behind the audio currently
-  playing. This is parallel processing, not overlapping English speech.
+- **It is chunked, not word-level simultaneous.** The VAD cuts after 300 ms of silence or
+  4 s of continuous speech, and Whisper transcribes each chunk. This keeps audio within
+  roughly two seconds of the speech, but there is no partial-word ASR yet.
+- **Full-duplex by default.** Capture and ASR/MT/TTS continue while English audio plays.
+  `--half-duplex` mutes the mic during playback for laptop speakers. Playback is
+  serialized, so new translations queue behind the audio currently playing.
 - **Small-model quality.** The Danish Whisper fine-tune is much better than stock small,
   but it still makes occasional mistakes; OPUS-MT is a compact 77M model and remains the
   quality ceiling for translation. Proper names, numbers, and domain terms are the usual
@@ -272,16 +273,17 @@ Every option can be overridden on the command line (`--model-path`, `--compute-t
 - **One speaker, one stream.** The design is a local interpreter, not a multi-user
   meeting transcriber.
 
-### Full-duplex with isolated audio
+### Full-duplex with isolated audio (default)
 
-If your interface keeps the microphone and speaker signals separate, use:
+Full-duplex is the default. If your interface keeps the microphone and speaker signals
+separate, just select the devices:
 
 ```bash
 # First: verify devices, channels, levels, and monitoring
 danglish audio-check
 
 # Then: keep listening while English audio plays
-danglish talk --full-duplex --input-device "Volt 4" --output-device "Volt 4" --stats
+danglish talk --input-device "Volt 4" --output-device "Volt 4" --stats
 ```
 
 Device indices can change when PipeWire nodes come and go, so device **names** are the
@@ -318,9 +320,9 @@ playing; its audio is queued in order. The translation worker is intentionally
 single-threaded so turns do not reorder and only one copy of each model is loaded.
 
 This is not yet word-level simultaneous interpreting: Whisper still waits for the VAD to
-close an utterance, so 600 ms of silence (or a 15 s maximum segment) is required before a
-new translation starts. Streaming ASR with partial hypotheses is the next latency step;
-see the roadmap. On a 2–4 core machine, overlapping ASR with playback can add a little
+close a chunk, so 300 ms of silence (or a 4 s maximum segment) is required before a new
+translation starts. Streaming ASR with partial hypotheses is the next latency step; see
+the roadmap. On a 2–4 core machine, overlapping ASR with playback can add a little
 latency, but memory stays flat because the models are shared.
 
 ## Translation quality
@@ -342,7 +344,7 @@ For a specific domain such as sermons, the high-leverage path is a small evaluat
 plus a domain fine-tune; see [`docs/context.md`](docs/context.md). The `sermon` profile
 already applies conservative terminology preferences.
 
-## Context profiles
+## Terminology profiles
 
 A setting such as “church sermon” cannot be given to the current 77M OPUS-MT model as an
 instruction — it has no prompt channel. Danglish implements the part that is reliable
@@ -362,9 +364,10 @@ The `sermon` profile prefers *congregation*, *sermon*, *pastor*, *worship servic
 *Holy Communion*, *the Holy Spirit*, and *Savior*. It deliberately skips ambiguous cases,
 such as a source that mentions both *menighed* and *kirke* (congregation and building).
 
-This improves consistency, not general discourse understanding. The real quality step is
-a domain fine-tune: the 77M model can be fine-tuned on sermon data, converted to
-CTranslate2, and selected by a profile at the same inference size. The plan, evaluation
+This improves consistency, not general discourse understanding or style. The app labels
+the selector **Terminology** for that reason. The real quality step is a domain fine-tune:
+the 77M model can be fine-tuned on sermon data, converted to CTranslate2, and selected by
+a profile at the same inference size. The plan, evaluation
 method, and trade-offs are in [`docs/context.md`](docs/context.md).
 
 ## Repository layout

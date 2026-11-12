@@ -34,7 +34,7 @@ def _add_context_option(parser: argparse.ArgumentParser) -> None:
         choices=profile_names(),
         default="general",
         help=(
-            "translation context profile; 'sermon' prefers church terminology "
+            "terminology profile; 'sermon' prefers church terminology "
             "(post-processing, not model instructions)"
         ),
     )
@@ -340,6 +340,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             output_channels=args.output_channels,
             min_energy=args.min_energy,
             silence_ms=args.silence_ms,
+            max_segment_s=args.max_segment_s,
             language=args.language,
             context=get_profile(args.context),
             sentence_level=args.sentence_level,
@@ -641,7 +642,8 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Live Danish speech → English speech. Uses local Whisper ASR, OPUS-MT "
             "translation, and a local Piper voice. Capture, translation, and playback "
-            "run in parallel; use --full-duplex with isolated audio I/O."
+            "run in parallel; full-duplex is the default (use --half-duplex with "
+            "laptop speakers)."
         ),
         epilog=(
             "Recommended Piper voices: en_GB-alba-medium (63 MB, CC BY 4.0), "
@@ -665,13 +667,22 @@ def build_parser() -> argparse.ArgumentParser:
     talk.add_argument(
         "--no-tts", action="store_true", help="print the English translation instead of speaking it"
     )
-    talk.add_argument(
+    duplex = talk.add_mutually_exclusive_group()
+    duplex.add_argument(
         "--full-duplex",
+        dest="full_duplex",
         action="store_true",
+        default=True,
         help=(
-            "keep listening while English audio plays; use isolated input/output "
-            "or an external echo canceller"
+            "keep listening while English audio plays (default; use isolated "
+            "input/output or an external echo canceller)"
         ),
+    )
+    duplex.add_argument(
+        "--half-duplex",
+        dest="full_duplex",
+        action="store_false",
+        help="mute the microphone while English audio plays (laptop speakers)",
     )
     talk.add_argument("--language", default="da", help="source language code (default: da)")
     talk.add_argument(
@@ -716,7 +727,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="VAD energy threshold (default: 0.006)",
     )
     talk.add_argument(
-        "--silence-ms", type=int, default=600, help="silence before cutting (default: 600 ms)"
+        "--silence-ms", type=int, default=300, help="silence before cutting (default: 300 ms)"
+    )
+    talk.add_argument(
+        "--max-segment-s",
+        type=float,
+        default=4.0,
+        help="force a chunk every N seconds of continuous speech (default: 4)",
     )
     talk.add_argument("--list-devices", action="store_true", help="list audio devices and exit")
     talk.add_argument("--stats", action="store_true", help="print ASR/MT/TTS timings per turn")
@@ -807,7 +824,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     contexts = subparsers.add_parser(
         "contexts",
-        help="list translation context profiles",
+        help="list terminology profiles",
         description="List the built-in context/terminology profiles.",
     )
     contexts.add_argument("--json", action="store_true", help="emit JSON")

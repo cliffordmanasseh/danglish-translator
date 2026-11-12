@@ -1,18 +1,19 @@
 "use strict";
 
-const STORAGE_KEY = "danglish.desktop.settings.v2";
+const STORAGE_KEY = "danglish.desktop.settings.v3";
 const HISTORY_KEY = "danglish.desktop.history.v1";
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
 const DEFAULT_SETTINGS = {
   context: "general",
-  fullDuplex: false,
+  fullDuplex: true,
   ttsEnabled: true,
   inputDevice: "",
   outputDevice: "",
   inputChannel: 0,
   outputChannel: null,
-  silenceMs: 600,
+  silenceMs: 300,
+  maxSegmentS: 4.0,
   minEnergy: 0.006,
   asrModel: DEFAULT_ASR_MODEL,
   voice: "en_GB-alba-medium",
@@ -83,6 +84,7 @@ const els = {
   inputChannel: $("inputChannel"),
   outputChannel: $("outputChannel"),
   silenceMs: $("silenceMs"),
+  maxSegmentS: $("maxSegmentS"),
   minEnergy: $("minEnergy"),
   asrModel: $("asrModel"),
   voice: $("voice"),
@@ -221,7 +223,7 @@ function updateContextUi() {
 
 function updateDuplexUi() {
   els.duplexNote.textContent = state.settings.fullDuplex
-    ? "Full-duplex is on — use headphones or isolated audio I/O."
+    ? "Full-duplex is on — use headphones or isolated audio I/O. Turn it off for laptop speakers."
     : "Half-duplex — the mic pauses while English audio plays.";
 }
 
@@ -488,6 +490,9 @@ function appendUtterance(payload, { persist = true } = {}) {
   if (typeof payload.total_ms === "number") {
     els.lastEvent.textContent = `last turn ${formatMs(payload.total_ms)}`;
   }
+  if (state.status === "listening") {
+    els.statusDetail.textContent = "Speak Danish. Pause when you finish a thought.";
+  }
 }
 
 function appendLog(stream, line) {
@@ -562,7 +567,8 @@ function openSettings() {
     state.settings.outputChannel === null || state.settings.outputChannel === undefined
       ? ""
       : String(state.settings.outputChannel);
-  els.silenceMs.value = String(state.settings.silenceMs ?? 600);
+  els.silenceMs.value = String(state.settings.silenceMs ?? 300);
+  els.maxSegmentS.value = String(state.settings.maxSegmentS ?? 4.0);
   els.minEnergy.value = String(state.settings.minEnergy ?? 0.006);
   els.asrModel.value = state.settings.asrModel || DEFAULT_ASR_MODEL;
   populateVoices();
@@ -574,6 +580,7 @@ function openSettings() {
 function saveDialogSettings(event) {
   event.preventDefault();
   const silence = Number(els.silenceMs.value);
+  const maxSegment = Number(els.maxSegmentS.value);
   const energy = Number(els.minEnergy.value);
   const inputChannel = Number(els.inputChannel.value);
   const outputChannel = els.outputChannel.value === "" ? null : Number(els.outputChannel.value);
@@ -585,7 +592,9 @@ function saveDialogSettings(event) {
     outputChannel !== null && Number.isFinite(outputChannel) && outputChannel >= 0
       ? outputChannel
       : null;
-  state.settings.silenceMs = Number.isFinite(silence) ? Math.max(200, silence) : 600;
+  state.settings.silenceMs = Number.isFinite(silence) ? Math.max(150, silence) : 300;
+  state.settings.maxSegmentS =
+    Number.isFinite(maxSegment) && maxSegment >= 1 ? Math.min(30, maxSegment) : 4.0;
   state.settings.minEnergy = Number.isFinite(energy) && energy > 0 ? energy : 0.006;
   state.settings.asrModel = els.asrModel.value;
   state.settings.voice = els.voice.value;
@@ -640,7 +649,13 @@ function bindEvents() {
       setStatus(payload.state || "idle", payload.message || "");
     });
     window.danglish.onEvent((payload) => {
-      if (payload?.type === "utterance") appendUtterance(payload);
+      if (payload?.type === "utterance") {
+        appendUtterance(payload);
+      } else if (payload?.type === "speech" && state.status === "listening") {
+        const duration = Number(payload.duration_s || 0).toFixed(1);
+        els.statusDetail.textContent = `Translating ${duration}s of speech…`;
+        els.lastEvent.textContent = `processing ${duration}s`;
+      }
     });
     window.danglish.onLog((payload) => {
       if (payload) appendLog(payload.stream, payload.line);
@@ -658,7 +673,7 @@ async function bootstrap() {
     }
     els.feed.scrollTop = els.feed.scrollHeight;
   }
-  els.fullDuplex.checked = Boolean(state.settings.fullDuplex);
+  els.fullDuplex.checked = state.settings.fullDuplex !== false;
   els.ttsEnabled.checked = state.settings.ttsEnabled !== false;
   els.contextSelect.value = state.settings.context;
   updateContextUi();

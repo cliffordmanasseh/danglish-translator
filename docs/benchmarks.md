@@ -117,7 +117,7 @@ of “recorded”. Use natural pauses and, if your microphone is noisy, raise
 `--silence-ms` rather than cutting aggressively. The inner Silero VAD gate prevents
 hallucinated words on silence and noise without trimming the utterance.
 
-The parallel runtime (`--full-duplex`) does not load extra models: capture, translation,
+The parallel runtime (full-duplex by default) does not load extra models: capture, translation,
 and playback overlap, but the same ASR/MT/TTS instances are shared and audio queues are
 bounded. Peak RSS is therefore the same ~1.0 GB; the trade-off is CPU contention, which
 is modest because playback is cheap. Re-measure on the target machine if you run ASR and
@@ -127,7 +127,7 @@ TTS concurrently on a 2-core CPU.
 
 For a 20-second utterance, processing takes ~2.0 seconds. For a short 3–5 second
 utterance, ASR typically takes 0.8–1.1 seconds because of Whisper's fixed overhead. Add
-the 600 ms VAD silence threshold and
+the 300 ms VAD silence threshold and
 the MT/TTS time; the typical “stop speaking → English audio” latency is roughly
 **1–2 seconds**.
 

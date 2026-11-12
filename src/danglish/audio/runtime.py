@@ -29,6 +29,7 @@ from .vad import EnergyVAD
 
 PlaybackFn = Callable[[np.ndarray, int], None]
 UtteranceFn = Callable[[SpeechUtterance], None]
+SpeechFn = Callable[[float], None]
 ErrorFn = Callable[[str], None]
 
 
@@ -94,6 +95,7 @@ class TalkRuntime:
         *,
         full_duplex: bool = False,
         on_utterance: UtteranceFn | None = None,
+        on_speech: SpeechFn | None = None,
         on_error: ErrorFn | None = None,
         sample_rate: int = 16_000,
         frame_queue_size: int = 512,
@@ -106,6 +108,7 @@ class TalkRuntime:
         self._play = play
         self._vad = vad
         self._on_utterance = on_utterance or _default_print
+        self._on_speech = on_speech
         self._on_error = on_error or _default_error
         self._sample_rate = sample_rate
 
@@ -166,6 +169,8 @@ class TalkRuntime:
                 continue
 
             for utterance in self._vad.push(frame):
+                if self._on_speech is not None:
+                    self._on_speech(len(utterance) / self._sample_rate)
                 self._submit_utterance(utterance)
 
     def stop(self) -> None:

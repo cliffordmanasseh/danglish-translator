@@ -127,12 +127,14 @@ def test_mic_alias_requires_a_model(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert "model not found" in capsys.readouterr().err
 
 
-def test_talk_full_duplex_flag() -> None:
-    args = build_parser().parse_args(["talk", "--full-duplex"])
-    assert args.full_duplex is True
-
+def test_talk_latency_defaults() -> None:
     default_args = build_parser().parse_args(["talk"])
-    assert default_args.full_duplex is False
+    assert default_args.full_duplex is True
+    assert default_args.silence_ms == 300
+    assert default_args.max_segment_s == 4.0
+
+    half = build_parser().parse_args(["talk", "--half-duplex"])
+    assert half.full_duplex is False
 
 
 def test_bad_arguments_exit(capsys: pytest.CaptureFixture[str]) -> None:
