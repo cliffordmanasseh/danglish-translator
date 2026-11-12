@@ -6,7 +6,7 @@ the UI; a bundled Python sidecar owns the models and audio devices.
 ```text
 Electron main process
   ├─ renderer (HTML/CSS/JS)          captions, controls, settings
-  └─ Python sidecar (PyInstaller)    ASR → OPUS-MT → Piper → audio
+  └─ Python sidecar (PyInstaller)    ASR → OPUS-MT → Kokoro/Piper → audio
        └─ bundled models             resources/models
 ```
 
@@ -33,10 +33,11 @@ Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The last 100 caption turns are kept in the app's local storage until you press
-**Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the Piper voice are downloaded on
-first use; the MT model must already exist from `danglish fetch`.
+**Clear**; they never leave the machine. Closing the window does not lose the transcript.
+In development, the Danish Whisper fine-tune, Kokoro, and the Piper fallback are
+downloaded on first use; the MT model must already exist from `danglish fetch`.
 
-If you already built the model bundle (~375 MB), the dev app uses it automatically:
+If you already built the model bundle (~511 MB), the dev app uses it automatically:
 
 ```text
 desktop/resources/models/
@@ -44,8 +45,8 @@ desktop/resources/models/
 
 Model files are platform-independent. To test on a Windows or macOS machine without
 downloading anything, copy that directory from the Linux build into the same location on
-the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~375 MB:
-77 MB MT, 238 MB Danish ASR, 60 MB voice.
+the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~511 MB:
+77 MB MT, 238 MB Danish ASR, 136 MB Kokoro, 60 MB Piper fallback.
 
 ## Build a distributable
 
@@ -57,22 +58,23 @@ npm run dist
 That script:
 
 1. builds the Python sidecar with PyInstaller into `resources/backend/`;
-2. copies/downloads models into `resources/models/` (~375 MB);
+2. copies/downloads models into `resources/models/` (~511 MB);
 3. runs electron-builder for the current platform into `release/`.
 
 The app resources look like:
 
 ```text
 resources/
-  backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, Piper, onnxruntime
+  backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, Kokoro, Piper, onnxruntime
   models/opus-mt-da-en-int8/     translation model
   models/whisper-small-danish/   Danish fine-tuned ASR model
-  models/voices/                 Piper voice
+  models/kokoro/                 natural Kokoro model + voices
+  models/voices/                 Piper fallback voice
   legal/LICENSE
   legal/NOTICE
 ```
 
-Installers are large (roughly 700 MB–1 GB depending on platform) because the Python
+Installers are large (roughly 750 MB–1 GB depending on platform) because the Python
 runtime and models are included. `resources/models` and `resources/backend` are generated
 and are not committed.
 
@@ -127,10 +129,10 @@ to see per-channel RMS levels and play a test tone.
 ## Memory
 
 The UI process is Chromium, so it adds memory over the CLI. On the reference Linux machine
-the loaded Python speech stack is ~0.6 GB RSS and the Electron processes sum to ~0.6 GB
-(summed RSS overcounts shared pages). A loaded window is therefore ~1.1–1.2 GB, and a
-peak ASR turn can approach ~1.5 GB total. That still fits under 2 GB, but with limited
-headroom for the OS. The CLI (`danglish talk`) remains the low-memory option.
+the Kokoro speech stack peaks at ~1.17 GB and the Electron processes sum to ~0.6 GB
+(summed RSS overcounts shared pages). A loaded window is therefore ~1.5–1.8 GB during a
+Kokoro turn. That still fits under 2 GB, but with limited headroom for the OS. Switch to
+the Piper engine in settings (or use the CLI) for the low-memory path.
 
 ## Licensing
 

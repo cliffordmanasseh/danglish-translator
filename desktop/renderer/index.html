@@ -55,7 +55,7 @@
         </div>
 
         <div class="control">
-          <label class="label" for="contextSelect">Context</label>
+          <label class="label" for="contextSelect">Terminology</label>
           <select id="contextSelect"></select>
           <p class="hint" id="contextHint">Neutral everyday translation.</p>
         </div>
@@ -71,7 +71,7 @@
         <label class="switch-row">
           <span>
             <strong>Speak English</strong>
-            <small>Local Piper voice</small>
+            <small id="voiceHint">Kokoro · af_heart</small>
           </span>
           <input type="checkbox" id="ttsEnabled" class="switch" checked />
         </label>
@@ -88,7 +88,7 @@
         <button class="text-btn" id="legalBtn" type="button">Licenses &amp; attribution</button>
 
         <div class="meta">
-          <span id="modelInfo">Danish Whisper · OPUS-MT · Piper</span>
+          <span id="modelInfo">Danish Whisper · OPUS-MT · Kokoro</span>
           <span id="rssInfo"></span>
         </div>
       </aside>
@@ -190,6 +190,13 @@
               <option value="small">Stock Whisper small</option>
               <option value="base">Stock base — lower memory, lower accuracy</option>
               <option value="tiny">Stock tiny — experimental</option>
+            </select>
+          </label>
+          <label>
+            <span>Voice engine</span>
+            <select id="ttsBackend">
+              <option value="kokoro">Kokoro — natural (recommended)</option>
+              <option value="piper">Piper — faster, more robotic</option>
             </select>
           </label>
           <label>

@@ -129,7 +129,8 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
         "fastapi": "web UI",
         "uvicorn": "web UI",
         "faster_whisper": "speech input",
-        "piper": "speech output",
+        "kokoro_onnx": "natural speech output",
+        "piper": "fast speech output",
         "sounddevice": "audio I/O",
     }
     installed = [label for module, label in optional.items() if _has_module(module)]
@@ -141,12 +142,13 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
         )
     )
 
-    if _has_module("faster_whisper") and _has_module("piper"):
+    if _has_module("faster_whisper") and (_has_module("kokoro_onnx") or _has_module("piper")):
         checks.append(
             Check(
                 "Speech stack",
                 "ok",
-                "ASR small + translation + TTS measured at ~1.0 GB peak; fits the 2 GB budget",
+                "Danish ASR + translation + TTS measured at ~1.0 GB peak "
+                "(Kokoro TTS can approach ~1.2 GB); fits the 2 GB budget",
             )
         )
     else:

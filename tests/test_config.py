@@ -14,7 +14,8 @@ def test_defaults_are_valid() -> None:
     assert config.model.compute_type == "int8"
     assert config.model.beam_size == 2
     assert config.server.port == 8765
-    assert config.tts.voice == "en_GB-alba-medium"
+    assert config.tts.backend == "kokoro"
+    assert config.tts.voice == "af_heart"
 
 
 def test_load_toml(tmp_path: Path) -> None:
@@ -119,4 +120,11 @@ def test_max_pending_must_exceed_partial_minimum() -> None:
     config.stream.min_partial_chars = 50
     config.stream.max_pending_chars = 10
     with pytest.raises(ConfigError, match="max_pending_chars"):
+        config.validate()
+
+
+def test_invalid_tts_backend() -> None:
+    config = AppConfig()
+    config.tts.backend = "nope"
+    with pytest.raises(ConfigError, match="tts.backend"):
         config.validate()

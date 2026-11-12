@@ -191,8 +191,8 @@ Measured on the development machine:
 
 - text pipeline: **147 MB** peak;
 - text + FastAPI server: **185 MB** peak;
-- speech stack (Danish ASR small + MT + Piper): **~1.0 GB** peak, around 900 MB RSS after
-  several turns. Full-duplex keeps the same models and bounded queues, so its footprint
+- speech stack (Danish ASR small + MT + Kokoro): **~1.2 GB** peak; the Piper fallback is
+  around 0.9 GB. Full-duplex keeps the same models and bounded queues, so its footprint
   is unchanged; only CPU contention changes.
 
 The speech peak includes CTranslate2's temporary allocation while quantizing the Whisper

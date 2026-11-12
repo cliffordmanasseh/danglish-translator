@@ -27,8 +27,9 @@ uv run --no-sync danglish talk
 uv run --no-sync danglish talk --full-duplex
 ```
 
-The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), a Piper English
-voice (~60 MB), and the OPUS-MT source model; the converted runtime model is ~77 MB. The one-time conversion
+The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), the Kokoro
+English model and voices (~142 MB), a Piper fallback voice (~60 MB), and the OPUS-MT
+source model; the converted runtime model is ~77 MB. The one-time conversion
 also installs torch and keeps the original model in the Hugging Face cache, so budget
 roughly 1.5 GB of disk for setup. After that, model loading takes a few seconds. Use
 headphones: the microphone is muted while English audio plays, which avoids a feedback
@@ -65,7 +66,7 @@ sudo apt install libportaudio2
 ![Danglish desktop app](docs/screenshot-desktop.png)
 
 The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
-start/stop control, live Danish/English captions, context profiles, full-duplex mode, and
+start/stop control, live Danish/English captions, terminology profiles, full-duplex mode, and
 audio-device/channel settings. It bundles the Python sidecar and all three models.
 
 For development:
@@ -86,19 +87,20 @@ cd desktop
 npm run dist
 ```
 
-This produces a Linux AppImage (~700 MB here), a Windows NSIS installer, or a macOS
+This produces a Linux AppImage (~757 MB here), a Windows NSIS installer, or a macOS
 DMG/zip, depending on the platform. PyInstaller cannot cross-compile the Python sidecar,
 so Windows and macOS installers must be built on those operating systems (or with the
 `Desktop builds` GitHub Actions workflow). The builds are unsigned by default; macOS will
 need right-click → Open until signing/notarization is added.
 
-The model files are platform-independent. Copy `desktop/resources/models/` (~375 MB) from
+The model files are platform-independent. Copy `desktop/resources/models/` (~511 MB) from
 this machine to a Windows/macOS checkout to test without re-downloading the models; the
 desktop app and the installer build both reuse that directory.
 
 ### Text mode and web demo
 
-The translator core also runs without audio:
+The translator core also runs without audio. Kokoro is the default voice; Piper remains
+available as the fast fallback:
 
 ```bash
 uv run --no-sync danglish translate "God morgen, hvordan har du det?"
@@ -114,8 +116,8 @@ uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no micr
      │
      ▼
 ┌───────────┐   ┌──────────────────┐   ┌────────────────────┐   ┌──────────────┐
-│ energy VAD│──▶│ Danish Whisper   │──▶│ OPUS-MT da→en      │──▶│ Piper TTS    │
-│ 16 kHz    │   │ small, int8 ASR  │   │ CT2 int8, streaming│   │ English voice│
+│ energy VAD│──▶│ Danish Whisper   │──▶│ OPUS-MT da→en      │──▶│ Kokoro TTS   │
+│ 16 kHz    │   │ small, int8 ASR  │   │ CT2 int8, streaming│   │ 82M English  │
 └───────────┘   └──────────────────┘   └────────────────────┘   └──────┬───────┘
                                                                       │
                                                                       ▼
@@ -124,8 +126,9 @@ uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no micr
 
 The microphone path is segmented by a small energy VAD. When you stop speaking for
 600 ms, the utterance goes through local Whisper ASR, the sentence-aware translation
-pipeline, and a local Piper voice. English audio starts playing as soon as the turn is
-translated.
+pipeline, and a local Kokoro voice. English audio starts playing as soon as the turn is
+translated. Kokoro sounds much more natural than the Piper fallback, at the cost of a few
+seconds of synthesis per turn.
 
 Capture/VAD, ASR→MT→TTS, and playback run on separate threads. By default the microphone
 is muted during playback (half-duplex) to avoid feedback with laptop speakers. With
@@ -155,8 +158,12 @@ half-duplex audio model, and the memory strategy. Detailed measurements are in
 - **Helsinki-NLP/opus-mt-da-en** is a 77M-parameter Marian model, converted to
   CTranslate2 int8 (~77 MB). It is a strong small general-purpose baseline, not a
   state-of-the-art translator.
-- **Piper en_GB-alba-medium** is a 63 MB English voice that synthesizes at roughly 20×
-  real time on CPU and is licensed CC BY 4.0.
+- **Kokoro-82M** is the default English voice: an 82M-parameter Apache-2.0 model, packaged
+  as a 114 MB int8 ONNX model plus 28 MB of voices. It sounds far more natural than Piper
+  and synthesizes at roughly 2.6× real time on the test CPU.
+- **Piper en_GB-alba-medium** remains as the fast fallback: 63 MB, roughly 20–30× real
+  time, but noticeably more robotic. Switch in the desktop voice settings or with
+  `--tts-backend piper`.
 
 ## Measured footprint
 
@@ -168,7 +175,7 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 |---|---:|---:|---|
 | Text translation | ~77 MB | **147 MB** | 10-sentence corpus, p50 36 ms |
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
-| Full speech-to-speech | ~375 MB | **~1.0 GB** | Danish ASR + MT + Piper, multi-turn |
+| Full speech-to-speech | ~511 MB | **~1.2 GB** | Danish ASR + MT + Kokoro, one 20 s turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
 
 Full-duplex uses the same models and bounded audio queues; its memory footprint is
@@ -176,9 +183,9 @@ unchanged. The extra cost is CPU contention with playback, which is small becaus
 playback itself is cheap.
 
 The **CLI** is the leanest option. The Electron desktop app adds roughly 0.6 GB across its
-Chromium processes (summed RSS; shared pages are counted more than once), so a loaded
-window is around 1.1–1.2 GB and an ASR-heavy turn can approach 1.5 GB. It still fits under
-2 GB, but with less headroom for the OS. On a strict 2 GB machine, measure with
+Chromium processes (summed RSS; shared pages are counted more than once). With Kokoro a
+loaded window is around 1.5–1.8 GB during a turn; the Piper engine keeps it nearer 1.4 GB.
+It still fits under 2 GB, but with little headroom for the OS on a 2 GB machine. On a strict 2 GB machine, measure with
 `ps`/Task Manager and prefer `danglish talk` if the desktop shell is too close to the
 limit. See the screenshot and build notes in [`desktop/`](desktop/).
 
@@ -186,30 +193,33 @@ Measured turn latency for a 20-second Danish audio clip:
 
 | Stage | Time | Real-time factor |
 |---|---:|---:|
-| Danish Whisper small ASR | 1.46 s | ~14× real time |
-| OPUS-MT translation | 0.15 s | — |
-| Piper speech synthesis | 0.38 s | ~30× real time |
-| **Total** | **~2.0 s** | for 20 s of input |
+| Danish Whisper small ASR | 1.45 s | ~14× real time |
+| OPUS-MT translation | 0.16 s | — |
+| Kokoro speech synthesis | 5.98 s | ~2.6× real time (16 s of output) |
+| **Total** | **~7.6 s** | for 20 s of input |
 
-With the default 600 ms end-of-speech pause, expect roughly **1–2 seconds from “stop
-speaking” to English audio** for short utterances, plus playback time. The first run
-downloads models; subsequent process startups load them in a few seconds.
+With the default 600 ms end-of-speech pause, expect roughly **2–4 seconds from “stop
+speaking” to English audio** for ordinary short turns with Kokoro, plus playback time.
+Piper mode is closer to 1–2 seconds. The first run downloads models; subsequent process
+startups load them in a few seconds.
 
 The 20-second clip above was one continuous utterance. When the VAD splits the same clip
-into five turns, total processing is ~5.4 s (five Whisper calls, each with fixed
-overhead) and peak RSS is ~1.0 GB. The Danish fine-tune handles short fragments much
-better than stock small (the 1 s fragment is now “Solen.” rather than “Såt.”), but the
-fixed ASR cost still dominates. Tune `--silence-ms` and `--min-energy` for your
-microphone and speaking style.
+into five turns, the fixed ASR cost dominates and Kokoro adds several seconds of
+synthesis per turn. The Danish fine-tune handles short fragments much better than stock
+small (the 1 s fragment is now “Solen.” rather than “Såt.”). Tune `--silence-ms` and
+`--min-energy` for your microphone and speaking style; switch to Piper if you need the
+lowest latency.
 
 ### Fitting under 2 GB
 
-The full stack peaks at about 1.0 GB (999 MB observed in the Danish-ASR multi-turn run),
-leaving roughly 1 GB of headroom for the OS and other applications. If you need to go
-lower:
+The full Kokoro speech stack peaks at about 1.17 GB in the 20 s test, leaving roughly
+0.8 GB of headroom for the OS. Piper mode is closer to 0.9 GB. If you need to go lower:
 
 - `danglish talk --asr-model base` lowers ASR memory but hurts Danish accuracy.
-- Use `configs/small-pc.toml` (2 threads, greedy decoding) on a 2–4 core machine.
+- Use `configs/small-pc.toml` (2 threads, greedy decoding, Piper voice) on a 2–4 core
+  machine.
+- `danglish talk --tts-backend piper` reduces TTS memory/latency at the cost of
+  naturalness.
 - The text-only pipeline is ~150 MB if you do not need audio.
 
 `danglish doctor` reports an estimate against the 2 GB budget, and `danglish bench`
@@ -229,7 +239,7 @@ danglish translate "text" | -f file | -        one-shot text translation
 danglish repl                     interactive line-by-line text translation
 danglish stream                   incremental stdin → stdout, with partials
 danglish serve                    local text WebSocket demo + web UI
-danglish contexts                 list translation context profiles
+danglish contexts                 list terminology profiles
 danglish fetch                    download + convert the OPUS-MT model
 danglish doctor                   environment, dependency, and memory checks
 danglish bench                    text latency and peak-RSS benchmark
@@ -239,7 +249,9 @@ Model and performance options live in [`configs/default.toml`](configs/default.t
 Useful overrides:
 
 ```bash
-danglish talk --asr-model small --tts-voice en_GB-cori-high
+danglish talk --tts-backend piper --tts-voice en_GB-cori-high
+danglish talk --tts-voice bf_emma      # Kokoro UK voice
+danglish talk --tts-backend kokoro --tts-voice af_bella
 danglish talk --min-energy 0.008 --silence-ms 500
 danglish talk --sentence-level    # lower latency, less context
 danglish talk --input-device "Volt 4" --output-device "Volt 4"
@@ -342,12 +354,13 @@ For a specific domain such as sermons, the high-leverage path is a small evaluat
 plus a domain fine-tune; see [`docs/context.md`](docs/context.md). The `sermon` profile
 already applies conservative terminology preferences.
 
-## Context profiles
+## Terminology profiles
 
 A setting such as “church sermon” cannot be given to the current 77M OPUS-MT model as an
 instruction — it has no prompt channel. Danglish implements the part that is reliable
 today: conservative terminology preferences, applied only when the Danish source contains
-the corresponding term.
+the corresponding term. This is **not** style or discourse conditioning; it will not make
+the model preach differently. Real conditioning requires a domain fine-tune.
 
 ```bash
 danglish contexts
@@ -375,7 +388,7 @@ src/danglish/
   pipeline.py          streaming translation events and document translation
   backends/            CTranslate2 backend + mock backend
   speech.py            ASR → MT → TTS orchestration (device-free, testable)
-  tts.py               Piper voice loading, download, and synthesis
+  tts.py               Kokoro/Piper loading, download, and synthesis
   audio/
     vad.py             energy VAD
     asr.py             faster-whisper wrapper
@@ -400,14 +413,17 @@ their own licenses:
 |---|---|---|
 | Translation | `Helsinki-NLP/opus-mt-da-en` | Apache-2.0 |
 | ASR | `lucasw89/whisper-small-danish-ct2-int8` (Danish fine-tune of OpenAI Whisper small) | MIT |
-| TTS voice | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
-| TTS runtime | `piper-tts` (optional) | GPL-3.0-or-later |
+| TTS (default) | Kokoro-82M | Apache-2.0 |
+| TTS runtime (default) | `kokoro-onnx` + espeak-ng/phonemizer | MIT + GPL-3.0-or-later |
+| TTS fallback | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
+| TTS runtime (fallback) | `piper-tts` (optional) | GPL-3.0-or-later |
 
-The default Piper voice is downloaded at runtime, not bundled. `piper-tts` is an
-optional GPL dependency installed only by the `speech`/`tts` extras; the Apache-2.0 core
-does not require it. See [`NOTICE`](NOTICE) and [`docs/models.md`](docs/models.md) for
-attribution, licensing details, and alternatives. The TTS voice choice is configurable;
-if you switch voices, check that voice's license.
+The default Kokoro model and Piper fallback are downloaded at runtime in the CLI and
+bundled in the desktop app. `kokoro-onnx`, `piper-tts`, espeak-ng, and phonemizer are
+optional GPL/MIT dependencies installed only by the `speech`/`tts` extras; the Apache-2.0
+core does not require them. See [`NOTICE`](NOTICE) and [`docs/models.md`](docs/models.md)
+for attribution and licensing details. The TTS voice/backend is configurable; if you
+switch voices, check that voice's license.
 
 ## Roadmap
 
@@ -422,11 +438,11 @@ if you switch voices, check that voice's license.
 - [ ] Browser microphone + server-side audio-to-audio (web UI)
 - [ ] Streaming/partial ASR for lower latency
 - [ ] Acoustic echo cancellation for shared speaker/microphone setups
-- [x] Conservative context/terminology profiles (`general`, `sermon`)
+- [x] Conservative terminology profiles (`general`, `sermon`)
 - [ ] Sermon-domain fine-tune and evaluation set
 - [ ] Quality evaluation harness (FLORES-200 / CoRal samples)
-- [ ] Prequantized packaged ASR/TTS artifacts for faster first run
-- [ ] Optional higher-quality English voices
+- [x] Higher-quality English voice (Kokoro-82M) with a fast Piper fallback
+- [ ] Streaming TTS so long turns start speaking before synthesis finishes
 
 ## Contributing
 

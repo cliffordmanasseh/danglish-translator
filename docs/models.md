@@ -82,34 +82,48 @@ Alternatives:
 - Vosk has small Danish models, but their accuracy and timestamp behavior differ; an
   adapter would be a new backend.
 
-## Speech synthesis — Piper
+## Speech synthesis — Kokoro-82M (default)
 
 | | |
 |---|---|
-| Runtime | [`piper-tts`](https://github.com/OHF-Voice/piper1-gpl) + ONNX Runtime |
-| Runtime license | GPL-3.0-or-later (optional dependency) |
-| Default voice | `en_GB-alba-medium` |
-| Disk | 63 MB |
-| Sample rate | 22,050 Hz mono |
-| Speed | ~20–30× real time on the test machine |
-| Voice license | CC BY 4.0 (dataset: DataShare Edinburgh) |
+| Model | [`hexgrad/Kokoro-82M`](https://huggingface.co/hexgrad/Kokoro-82M) |
+| ONNX runtime | [`kokoro-onnx`](https://github.com/thewh1teagle/kokoro-onnx) + ONNX Runtime |
+| Disk | 114 MB int8 model + 28 MB voices |
+| Sample rate | 24,000 Hz mono |
+| Speed | ~2.6× real time on the test machine (about 6 s for 16 s of speech) |
+| Model license | Apache-2.0 |
+| Runtime license | MIT (`kokoro-onnx`); GPL-3.0-or-later (espeak-ng/phonemizer) |
 
-The voice is downloaded from [`rhasspy/piper-voices`](https://huggingface.co/rhasspy/piper-voices)
-on first use and cached by Hugging Face. The voice is not bundled in this repository.
+Kokoro is an 82M-parameter model and is far more natural than Piper while still running
+on CPU. It is not absolute TTS SOTA — XTTS-v2, Orpheus, F5-TTS and hosted models are
+better — but those are much larger, slower, and/or non-commercial. For this 2 GB local
+stack, Kokoro is the best naturalness-per-megabyte option we tested.
 
-Recommended permissively licensed choices:
+Voices are selected with `--tts-voice` (or the desktop voice menu):
 
-- `en_GB-alba-medium` — 63 MB, CC BY 4.0, British English, single speaker (default).
-- `en_GB-cori-high` — 114 MB, public domain, higher quality.
+- `af_heart` — US English, grade A, best quality (default);
+- `af_bella` — US English, grade A-;
+- `bf_emma` — UK English, grade B-;
+- `bm_george` — UK English, grade C.
+
+The model and voices are downloaded from the kokoro-onnx GitHub releases on first use, or
+supplied by the desktop bundle. They are platform-independent.
+
+### Fast fallback — Piper
+
+`--tts-backend piper` switches to [`piper-tts`](https://github.com/OHF-Voice/piper1-gpl).
+The default fallback voice is `en_GB-alba-medium` (63 MB, CC BY 4.0, 22.05 kHz, ~20–30×
+real time). It is noticeably more robotic, but much faster and lighter. `en_GB-cori-high`
+(114 MB, public domain) is a higher-quality Piper voice.
 
 Other Piper voices have their own licenses. Some, such as Lessac and Ryan, use
 research/non-commercial dataset terms; do not assume a voice is redistributable just
-because Piper can load it. Use `--tts-voice` or set `tts.voice` in the config. A local
-voice can also be passed as a path to an `.onnx` file with a sibling `.onnx.json`.
+because Piper can load it. A local Piper voice can be passed as a path to an `.onnx` file
+with a sibling `.onnx.json`.
 
-`piper-tts` itself is GPL-3.0-or-later and is an optional dependency. The Apache-2.0
-core does not require it; see [`../NOTICE`](../NOTICE) if you redistribute a combined
-environment. A permissively licensed TTS backend would be a welcome contribution.
+`piper-tts`, `kokoro-onnx`, espeak-ng, and phonemizer are optional dependencies. The
+Apache-2.0 core does not require them; see [`../NOTICE`](../NOTICE) if you redistribute a
+combined environment.
 
 ## Attribution and redistribution
 
@@ -118,7 +132,9 @@ Danglish code is Apache-2.0. Models and voices are separate works:
 - keep the OPUS-MT model card and Apache-2.0 notice if you redistribute the converted
   model;
 - Whisper and faster-whisper are MIT;
-- the default Piper voice is CC BY 4.0 and requires attribution if redistributed.
+- Kokoro-82M weights are Apache-2.0; `kokoro-onnx` is MIT; espeak-ng/phonemizer are
+  GPL-3.0-or-later;
+- the Piper fallback voice is CC BY 4.0 and requires attribution if redistributed.
 
 See [`../NOTICE`](../NOTICE) for the summary. If you change the default voice, update the
 notice and check the new voice's license.

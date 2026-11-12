@@ -15,7 +15,7 @@ from ..context import ContextProfile, get_profile
 from ..errors import DanglishError, DependencyMissingError
 from ..memory import current_rss_mb
 from ..speech import SpeechTranslator, SpeechUtterance
-from ..tts import DEFAULT_VOICE, PiperTTS
+from ..tts import create_tts
 from .asr import DEFAULT_ASR_MODEL, WhisperASR
 from .device import (
     channel_index,
@@ -39,7 +39,11 @@ def run_talk(
     *,
     asr_model: str | None = None,
     asr_compute_type: str = "int8",
+    tts_backend: str | None = None,
     tts_voice: str | None = None,
+    tts_model: str | None = None,
+    tts_voices: str | None = None,
+    tts_speed: float = 1.0,
     enable_tts: bool = True,
     full_duplex: bool = False,
     input_device: int | str | None = None,
@@ -128,9 +132,20 @@ def run_talk(
 
         tts = None
         if enable_tts:
-            voice = tts_voice or config.tts.voice or DEFAULT_VOICE
-            print(f"loading English voice {voice!r} ...", file=sys.stderr, flush=True)
-            tts = PiperTTS(voice)
+            backend_name = tts_backend or config.tts.backend
+            voice = tts_voice or config.tts.voice
+            print(
+                f"loading English voice {voice!r} ({backend_name}) ...",
+                file=sys.stderr,
+                flush=True,
+            )
+            tts = create_tts(
+                backend_name,
+                voice,
+                model_path=tts_model,
+                voices_path=tts_voices,
+                speed=tts_speed,
+            )
             tts.warmup()
 
         speech = SpeechTranslator(

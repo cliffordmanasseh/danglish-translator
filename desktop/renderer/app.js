@@ -1,6 +1,6 @@
 "use strict";
 
-const STORAGE_KEY = "danglish.desktop.settings.v2";
+const STORAGE_KEY = "danglish.desktop.settings.v3";
 const HISTORY_KEY = "danglish.desktop.history.v1";
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
@@ -15,7 +15,8 @@ const DEFAULT_SETTINGS = {
   silenceMs: 600,
   minEnergy: 0.006,
   asrModel: DEFAULT_ASR_MODEL,
-  voice: "en_GB-alba-medium",
+  ttsBackend: "kokoro",
+  ttsVoice: "af_heart",
 };
 
 const FALLBACK_CONTEXTS = [
@@ -27,6 +28,13 @@ const FALLBACK_CONTEXTS = [
   },
 ];
 
+const KOKORO_VOICE_LABELS = {
+  af_heart: "Heart — US English, best quality",
+  af_bella: "Bella — US English",
+  bf_emma: "Emma — UK English",
+  bm_george: "George — UK English",
+};
+
 const VOICE_LABELS = {
   "en_GB-alba-medium": "Alba — UK English (CC BY)",
   "en_GB-cori-high": "Cori — UK English (public domain)",
@@ -37,7 +45,11 @@ const state = {
   contexts: FALLBACK_CONTEXTS.slice(),
   devices: [],
   deviceDefaults: { input: null, output: null },
-  appInfo: { packaged: false, voices: ["en_GB-alba-medium"] },
+  appInfo: {
+    packaged: false,
+    voices: ["en_GB-alba-medium"],
+    kokoroVoices: ["af_heart", "af_bella", "bf_emma", "bm_george"],
+  },
   status: "idle",
   running: false,
   busy: false,
@@ -85,7 +97,9 @@ const els = {
   silenceMs: $("silenceMs"),
   minEnergy: $("minEnergy"),
   asrModel: $("asrModel"),
+  ttsBackend: $("ttsBackend"),
   voice: $("voice"),
+  voiceHint: $("voiceHint"),
   toast: $("toast"),
 };
 
@@ -240,22 +254,49 @@ function populateContexts() {
   updateContextUi();
 }
 
-function populateVoices() {
-  const voices =
-    state.appInfo.voices && state.appInfo.voices.length
-      ? state.appInfo.voices
-      : ["en_GB-alba-medium"];
+function voiceOptionsFor(backend) {
+  if (backend === "kokoro") {
+    return state.appInfo.kokoroVoices && state.appInfo.kokoroVoices.length
+      ? state.appInfo.kokoroVoices
+      : Object.keys(KOKORO_VOICE_LABELS);
+  }
+  return state.appInfo.voices && state.appInfo.voices.length
+    ? state.appInfo.voices
+    : ["en_GB-alba-medium"];
+}
+
+function populateVoices(backend = state.settings.ttsBackend || "kokoro", preferred) {
+  const voices = voiceOptionsFor(backend);
+  preferred = preferred || state.settings.ttsVoice;
   els.voice.replaceChildren();
   for (const voice of voices) {
     const option = document.createElement("option");
     option.value = voice;
-    option.textContent = VOICE_LABELS[voice] || voice;
+    option.textContent =
+      backend === "kokoro" ? KOKORO_VOICE_LABELS[voice] || voice : VOICE_LABELS[voice] || voice;
     els.voice.appendChild(option);
   }
-  if (!voices.includes(state.settings.voice)) {
-    state.settings.voice = voices[0];
+  if (!preferred || !voices.includes(preferred)) {
+    preferred = voices[0];
   }
-  els.voice.value = state.settings.voice;
+  els.voice.value = preferred;
+  return preferred;
+}
+
+function normalizeTtsSettings() {
+  const backend = state.settings.ttsBackend === "piper" ? "piper" : "kokoro";
+  const voices = voiceOptionsFor(backend);
+  state.settings.ttsBackend = backend;
+  if (!voices.includes(state.settings.ttsVoice)) {
+    state.settings.ttsVoice = voices[0];
+  }
+}
+
+function updateVoiceHint() {
+  const backend = state.settings.ttsBackend || "kokoro";
+  const voice =
+    state.settings.ttsVoice || (backend === "kokoro" ? "af_heart" : "en_GB-alba-medium");
+  els.voiceHint.textContent = backend === "kokoro" ? `Kokoro · ${voice}` : `Piper · ${voice}`;
 }
 
 function populateAsrOptions() {
@@ -347,10 +388,12 @@ async function loadAppInfo() {
   try {
     const info = await window.danglish.appInfo();
     state.appInfo = info || state.appInfo;
+    normalizeTtsSettings();
     populateVoices();
+    updateVoiceHint();
     populateAsrOptions();
     if (state.appInfo.packaged) {
-      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · Piper";
+      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · Kokoro";
     }
   } catch (error) {
     els.modelInfo.textContent = "Backend offline";
@@ -565,8 +608,8 @@ function openSettings() {
   els.silenceMs.value = String(state.settings.silenceMs ?? 600);
   els.minEnergy.value = String(state.settings.minEnergy ?? 0.006);
   els.asrModel.value = state.settings.asrModel || DEFAULT_ASR_MODEL;
-  populateVoices();
-  els.voice.value = state.settings.voice;
+  els.ttsBackend.value = state.settings.ttsBackend || "kokoro";
+  populateVoices(els.ttsBackend.value, state.settings.ttsVoice);
   populateDeviceSelects();
   els.dialog.showModal();
 }
@@ -588,7 +631,9 @@ function saveDialogSettings(event) {
   state.settings.silenceMs = Number.isFinite(silence) ? Math.max(200, silence) : 600;
   state.settings.minEnergy = Number.isFinite(energy) && energy > 0 ? energy : 0.006;
   state.settings.asrModel = els.asrModel.value;
-  state.settings.voice = els.voice.value;
+  state.settings.ttsBackend = els.ttsBackend.value;
+  state.settings.ttsVoice = els.voice.value;
+  updateVoiceHint();
 
   saveSettings();
   els.dialog.close();
@@ -619,6 +664,9 @@ function bindEvents() {
   els.ttsEnabled.addEventListener("change", () => {
     setSettingsFromControls();
     if (state.running) showToast("Voice output changed. Restart listening to apply it.");
+  });
+  els.ttsBackend.addEventListener("change", () => {
+    populateVoices(els.ttsBackend.value, null);
   });
 
   els.form.addEventListener("submit", saveDialogSettings);
