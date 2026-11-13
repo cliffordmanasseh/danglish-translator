@@ -1,0 +1,21 @@
+RESEARCH USE ONLY — MODEL WEIGHTS
+
+Copyright 2026 Danglish contributors.
+
+The fine-tuned weights in this directory (EuroLLM-1.7B sermon LoRA, Q5_K_M and
+Q4_K_M) are made available for non-commercial research, evaluation, and
+personal study only.
+
+You may not:
+- redistribute, sublicense, sell, or host the weights as a commercial product
+  or service;
+- use them to train another model for commercial purposes;
+- remove this notice.
+
+The base model `utter-project/EuroLLM-1.7B-Instruct` is Apache-2.0. This notice
+applies to the fine-tuned weights and any derivative. It does not grant rights
+to the underlying Danish sermon texts, which are not distributed.
+
+No warranty. This is not legal advice. For commercial or open licensing,
+contact the rights holders of the training sermons or retrain on the
+public-domain subset.

@@ -39,6 +39,6 @@ On 60 held-out sermons with independent editor references:
 ## Licensing
 
 The base model is Apache-2.0. The fine-tuned weights are **research use only**
-for now: the training data includes 1,142 modern sermons with unknown rights.
-Do not redistribute the weights as Apache-2.0 without a rights review. See
-`MODEL_CARD.md` for details.
+under [`LICENSE-WEIGHTS`](LICENSE-WEIGHTS): the training data includes 1,142
+modern sermons with unknown rights. Do not redistribute the weights as
+Apache-2.0 without a rights review. See `MODEL_CARD.md` for details.

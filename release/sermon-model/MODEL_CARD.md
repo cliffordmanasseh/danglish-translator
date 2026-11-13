@@ -1,3 +1,21 @@
+---
+license: other
+license_name: research-use-only
+license_link: LICENSE-WEIGHTS
+base_model: utter-project/EuroLLM-1.7B-Instruct
+language:
+  - da
+  - en
+library_name: llama.cpp
+tags:
+  - translation
+  - danish
+  - english
+  - sermons
+  - gguf
+  - llama.cpp
+---
+
 # EuroLLM-1.7B Sermon Danish→English (Q5_K_M)
 
 A Danish-to-English translation model specialized for Christian preaching.
@@ -113,10 +131,11 @@ python translate.py "Gud er kærlighed."
 
 - **Base model:** Apache-2.0 (`utter-project/EuroLLM-1.7B-Instruct`).
 - **Repo code:** Apache-2.0.
-- **Fine-tuned weights:** **research use only** for now. The model was trained
-  on 1,142 modern sermons whose rights are unknown, so the weights are a
-  derivative of that data and cannot be redistributed as Apache-2.0 without
-  permission or a rights review.
+- **Fine-tuned weights:** **research use only** — see
+  [`LICENSE-WEIGHTS`](LICENSE-WEIGHTS). The model was trained on 1,142 modern
+  sermons whose rights are unknown, so the weights are a derivative of that
+  data and cannot be redistributed as Apache-2.0 without permission or a rights
+  review.
 - The 163 pre-1900 sermons are public domain. A permissively licensed model
   would need to be retrained on that subset (8,771 pairs) or on texts with
   explicit permission.
