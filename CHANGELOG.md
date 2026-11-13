@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Optional `llama` backend for the EuroLLM-1.7B sermon translation model
+  (Q5_K_M): 0.8663 COMET on 60 held-out sermons, ~1.29 GB RSS, ~270 ms p50.
+- `release/sermon-model/` with model card, checksums, and a dependency-free
+  client; `DANGLISH_BACKEND=llama` selects the backend.
+
 ### Changed
 
 - Low-latency chunking: cut after 300 ms of silence or 4 s of continuous speech (was

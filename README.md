@@ -160,6 +160,44 @@ half-duplex audio model, and the memory strategy. Detailed measurements are in
 - **Piper en_GB-alba-medium** is a 63 MB English voice that synthesizes at roughly 20×
   real time on CPU and is licensed CC BY 4.0.
 
+### Sermon translation model (optional)
+
+For preaching, an optional EuroLLM-1.7B LoRA is available. It is much larger
+than the default OPUS-MT model but preserves theological terminology and
+biblical quotations better:
+
+| Model | COMET | chrF++ | BLEU | Glossary |
+|---|---:|---:|---:|---:|
+| OPUS-MT tc-big | 0.8316 | 63.34 | 44.42 | 13/17 |
+| EuroLLM sermon, Q5_K_M | **0.8663** | **70.76** | **51.45** | **14/17** |
+
+It runs as a local llama.cpp server and uses ~1.29 GB RSS with ~270 ms p50.
+Enable it with:
+
+```bash
+# terminal 1
+llama-server -m release/sermon-model/eurollm-sermon-qwen-full-q5_k_m.gguf \
+  --host 127.0.0.1 --port 18080 -c 768 -b 128 -ub 64 -np 1 \
+  -ctk q8_0 -ctv q8_0 -t 16
+
+# terminal 2
+DANGLISH_BACKEND=llama danglish translate "Gud er kærlighed."
+```
+
+or in `danglish.toml`:
+
+```toml
+[model]
+backend = "llama"
+server_url = "http://127.0.0.1:18080"
+```
+
+The model files are in [`release/sermon-model/`](release/sermon-model/); see its
+`MODEL_CARD.md`. The fine-tuned weights are **research-use-only** because the
+training data includes modern sermons with unknown rights. The default
+installer does not bundle them. The full speech stack plus this model exceeds
+the 2 GB budget; it is intended for text-only or higher-memory deployments.
+
 ## Measured footprint
 
 Measured on a 32-core x86_64 development machine, Python 3.12, CTranslate2 int8,
@@ -170,6 +208,7 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 |---|---:|---:|---|
 | Text translation | ~77 MB | **147 MB** | 10-sentence corpus, p50 36 ms |
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
+| Text, sermon Q5 backend | 1.2 GB | **1.29 GB** | 768 ctx, 1 slot, p50 ~270 ms |
 | Full speech-to-speech | ~375 MB | **~1.0 GB** | Danish ASR + MT + Piper, multi-turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
 
@@ -402,9 +441,13 @@ their own licenses:
 | Component | Model | License |
 |---|---|---|
 | Translation | `Helsinki-NLP/opus-mt-da-en` | Apache-2.0 |
+| Sermon translation (optional) | EuroLLM-1.7B sermon LoRA (`Q5_K_M`) | Base Apache-2.0; fine-tuned weights research-use-only (data rights) |
 | ASR | `lucasw89/whisper-small-danish-ct2-int8` (Danish fine-tune of OpenAI Whisper small) | MIT |
 | TTS voice | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
 | TTS runtime | `piper-tts` (optional) | GPL-3.0-or-later |
+
+The optional sermon model and its data statement are documented in
+[`release/sermon-model/MODEL_CARD.md`](release/sermon-model/MODEL_CARD.md).
 
 The default Piper voice is downloaded at runtime, not bundled. `piper-tts` is an
 optional GPL dependency installed only by the `speech`/`tts` extras; the Apache-2.0 core

@@ -20,11 +20,21 @@ desktop/release/
 htmlcov/
 .mypy_cache/
 
-# Local models and voices (large, downloaded on demand)
+# Raw model outputs (large; may contain copyrighted source text)
 models/
 *.onnx
 *.onnx.json
 *.safetensors
+
+# Raw experiment predictions/references (may contain copyrighted text)
+experiments/results/**/*.json
+experiments/results/**/*.jsonl
+
+# Scraped sermon corpus (copyrighted unless marked public_domain; do not commit)
+data/sermons/
+
+# Release model weights (large; verify with release/sermon-model/SHA256SUMS)
+release/sermon-model/*.gguf
 
 # Local runtime output and caches
 *.wav

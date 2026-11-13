@@ -11,6 +11,14 @@ def create_backend(config: AppConfig, *, mock: bool = False) -> TranslatorBacken
     if mock:
         return MockBackend()
 
+    if config.model.backend == "llama":
+        from .llama import LlamaServerBackend
+
+        return LlamaServerBackend(
+            config.model.server_url,
+            max_tokens=config.model.max_decoding_length,
+        )
+
     # Imported lazily so `danglish doctor` and the mock demo stay fast.
     from .ct2 import CT2Backend
 

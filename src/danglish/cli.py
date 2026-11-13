@@ -54,6 +54,16 @@ def _add_model_options(parser: argparse.ArgumentParser, *, mock: bool = True) ->
         help="converted CTranslate2 model directory",
     )
     parser.add_argument(
+        "--backend",
+        choices=("ct2", "llama"),
+        help="translation backend (default: ct2)",
+    )
+    parser.add_argument(
+        "--server-url",
+        metavar="URL",
+        help="llama.cpp server URL for --backend llama (default: http://127.0.0.1:18080)",
+    )
+    parser.add_argument(
         "--compute-type",
         choices=COMPUTE_TYPES,
         help="CTranslate2 compute type (default: int8)",
@@ -82,6 +92,10 @@ def _config_from_args(args: argparse.Namespace) -> AppConfig:
     config = load_config(getattr(args, "config", None))
     if getattr(args, "model_path", None) is not None:
         config.model.path = args.model_path
+    if getattr(args, "backend", None) is not None:
+        config.model.backend = args.backend
+    if getattr(args, "server_url", None) is not None:
+        config.model.server_url = args.server_url
     if getattr(args, "compute_type", None) is not None:
         config.model.compute_type = args.compute_type
     if getattr(args, "threads", None) is not None:
@@ -93,7 +107,9 @@ def _config_from_args(args: argparse.Namespace) -> AppConfig:
 
 
 def _require_model(config: AppConfig, *, mock: bool) -> None:
-    if not mock and not model_is_ready(config.model.path):
+    if mock or config.model.backend == "llama":
+        return
+    if not model_is_ready(config.model.path):
         raise DanglishError(
             f"model not found at {config.model.path}. Run `danglish fetch` first, "
             "pass --model-path, or use --mock for a no-model demo."

@@ -41,6 +41,23 @@ def _has_module(name: str) -> bool:
         return False
 
 
+def _llama_health(server_url: str) -> tuple[bool, str]:
+    import json
+    import urllib.error
+    import urllib.request
+
+    url = f"{server_url.rstrip('/')}/health"
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            data = json.loads(response.read())
+        return True, f"llama.cpp server at {server_url} ({data.get('status', 'ok')})"
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return False, (
+            f"llama.cpp server at {server_url} not reachable ({exc}); "
+            "start it from release/sermon-model/README.md"
+        )
+
+
 def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
     checks: list[Check] = []
 
@@ -72,6 +89,10 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
     if mock:
         checks.append(Check("Model", "warn", "mock backend selected; no model needed"))
         estimate = estimate_memory(None, with_server=True)
+    elif config.model.backend == "llama":
+        reachable, detail = _llama_health(config.model.server_url)
+        checks.append(Check("Model", "ok" if reachable else "warn", detail))
+        estimate = None
     else:
         ready = model_is_ready(config.model.path)
         if ready:
@@ -94,25 +115,42 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
                 )
             )
 
-    budget_ok = estimate.fits(DEFAULT_BUDGET_MB)
-    checks.append(
-        Check(
-            "Memory estimate",
-            "ok" if budget_ok else "fail",
-            f"~{format_mb(estimate.total_mb)} peak "
-            f"(weights {format_mb(estimate.weights_mb)} + runtime) "
-            f"against a {format_mb(DEFAULT_BUDGET_MB)} budget",
-        )
-    )
-
-    if snapshot.available_mb is not None and snapshot.available_mb < estimate.total_mb:
+    if config.model.backend == "llama":
         checks.append(
             Check(
-                "Available RAM",
-                "warn",
-                f"only {format_mb(snapshot.available_mb)} free; close other applications",
+                "Memory estimate",
+                "ok",
+                "~1.29 GB RSS for the Q5 sermon model (text only); "
+                "the full speech stack plus this model exceeds the 2 GB budget",
             )
         )
+        if snapshot.available_mb is not None and snapshot.available_mb < 1290:
+            checks.append(
+                Check(
+                    "Available RAM",
+                    "warn",
+                    f"only {format_mb(snapshot.available_mb)} free; the Q5 model needs ~1.29 GB",
+                )
+            )
+    else:
+        budget_ok = estimate.fits(DEFAULT_BUDGET_MB)
+        checks.append(
+            Check(
+                "Memory estimate",
+                "ok" if budget_ok else "fail",
+                f"~{format_mb(estimate.total_mb)} peak "
+                f"(weights {format_mb(estimate.weights_mb)} + runtime) "
+                f"against a {format_mb(DEFAULT_BUDGET_MB)} budget",
+            )
+        )
+        if snapshot.available_mb is not None and snapshot.available_mb < estimate.total_mb:
+            checks.append(
+                Check(
+                    "Available RAM",
+                    "warn",
+                    f"only {format_mb(snapshot.available_mb)} free; close other applications",
+                )
+            )
 
     runtime_modules = {
         "ctranslate2": "required",
@@ -142,13 +180,23 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
     )
 
     if _has_module("faster_whisper") and _has_module("piper"):
-        checks.append(
-            Check(
-                "Speech stack",
-                "ok",
-                "ASR small + translation + TTS measured at ~1.0 GB peak; fits the 2 GB budget",
+        if config.model.backend == "llama":
+            checks.append(
+                Check(
+                    "Speech stack",
+                    "warn",
+                    "ASR + TTS ~1.0 GB plus the Q5 model ~1.29 GB exceeds the 2 GB budget; "
+                    "use text-only or raise the budget",
+                )
             )
-        )
+        else:
+            checks.append(
+                Check(
+                    "Speech stack",
+                    "ok",
+                    "ASR small + translation + TTS measured at ~1.0 GB peak; fits the 2 GB budget",
+                )
+            )
     else:
         checks.append(
             Check(

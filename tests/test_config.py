@@ -120,3 +120,33 @@ def test_max_pending_must_exceed_partial_minimum() -> None:
     config.stream.max_pending_chars = 10
     with pytest.raises(ConfigError, match="max_pending_chars"):
         config.validate()
+
+
+def test_llama_backend_defaults_and_validation() -> None:
+    config = AppConfig()
+    assert config.model.backend == "ct2"
+    assert config.model.server_url == "http://127.0.0.1:18080"
+
+    config.model.backend = "llama"
+    config.validate()
+
+    config.model.backend = "invalid"
+    with pytest.raises(ConfigError, match="model.backend"):
+        config.validate()
+
+
+def test_load_toml_llama_backend(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(
+        """
+[model]
+backend = "llama"
+server_url = "http://127.0.0.1:9999"
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert config.model.backend == "llama"
+    assert config.model.server_url == "http://127.0.0.1:9999"

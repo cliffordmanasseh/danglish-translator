@@ -22,6 +22,8 @@ else:  # pragma: no cover - exercised on Python 3.10 only
 DEFAULT_MODEL_DIR = Path("models/opus-mt-da-en-int8")
 ENV_CONFIG = "DANGLISH_CONFIG"
 ENV_MODEL = "DANGLISH_MODEL"
+ENV_BACKEND = "DANGLISH_BACKEND"
+ENV_SERVER_URL = "DANGLISH_SERVER_URL"
 
 COMPUTE_TYPES = ("int8", "int8_float32", "float32", "bfloat16", "int16", "float16")
 
@@ -35,8 +37,14 @@ class ModelConfig:
     inter_threads: int = 1
     beam_size: int = 2
     max_decoding_length: int = 256
+    backend: str = "ct2"
+    server_url: str = "http://127.0.0.1:18080"
 
     def validate(self) -> None:
+        if self.backend not in ("ct2", "llama"):
+            raise ConfigError("model.backend must be 'ct2' or 'llama'")
+        if not self.server_url.startswith(("http://", "https://")):
+            raise ConfigError("model.server_url must start with http:// or https://")
         if self.compute_type not in COMPUTE_TYPES:
             raise ConfigError(
                 f"unknown compute_type {self.compute_type!r}; choose one of {', '.join(COMPUTE_TYPES)}"
@@ -156,6 +164,12 @@ def load_config(path: Path | str | None = None) -> AppConfig:
     env_model = os.environ.get(ENV_MODEL)
     if env_model:
         config.model.path = Path(env_model)
+    env_backend = os.environ.get(ENV_BACKEND)
+    if env_backend:
+        config.model.backend = env_backend
+    env_server = os.environ.get(ENV_SERVER_URL)
+    if env_server:
+        config.model.server_url = env_server
 
     config.validate()
     return config

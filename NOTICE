@@ -48,6 +48,19 @@ Uvicorn                                     BSD-3-Clause
 PyTorch                                     BSD-3-Clause (convert extra only)
 Transformers                                Apache-2.0  (convert extra only)
 
+OPTIONAL SERMON MODEL
+---------------------
+utter-project/EuroLLM-1.7B-Instruct
+  Base model for the optional sermon translator
+  License: Apache-2.0
+  https://huggingface.co/utter-project/EuroLLM-1.7B-Instruct
+
+EuroLLM-1.7B sermon LoRA (Q5_K_M)
+  Fine-tuned on Danish sermons. The fine-tuned weights are research-use-only
+  because part of the training data has unknown rights. See
+  release/sermon-model/MODEL_CARD.md. The model is not bundled in the default
+  installer.
+
 LICENSING NOTES
 ---------------
 piper-tts is an optional speech-output dependency and is licensed under the GNU
