@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 from . import __version__
 from .backends import create_backend
 from .bench import run_benchmark
-from .config import COMPUTE_TYPES, AppConfig, load_config
+from .config import COMPUTE_TYPES, AppConfig, BroadcastConfig, load_config
 from .context import get_profile, list_profiles, profile_names
 from .doctor import build_checks, overall_status, render_checks
 from .errors import DanglishError
@@ -313,6 +314,81 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _stop_on_signal(signum: int, frame: object) -> None:
+    raise KeyboardInterrupt
+
+
+def _install_stop_handlers() -> tuple[object, object]:
+    previous = (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM))
+    signal.signal(signal.SIGINT, _stop_on_signal)
+    signal.signal(signal.SIGTERM, _stop_on_signal)
+    return previous
+
+
+def _restore_stop_handlers(previous: tuple[object, object]) -> None:
+    signal.signal(signal.SIGINT, previous[0])  # type: ignore[arg-type]
+    signal.signal(signal.SIGTERM, previous[1])  # type: ignore[arg-type]
+
+
+def _broadcast_config(
+    base: BroadcastConfig, *, local: bool, ssid: str | None, server_ip: str | None
+) -> BroadcastConfig:
+    return BroadcastConfig(
+        enabled=True,
+        local=local,
+        server_ip=server_ip or base.server_ip,
+        ssid=ssid or base.ssid,
+        http_port=base.http_port,
+        https_port=base.https_port,
+        webrtc_port=base.webrtc_port,
+        rtp_port=base.rtp_port,
+        audio_input=base.audio_input,
+        sink_name=base.sink_name,
+    )
+
+
+def cmd_broadcast(args: argparse.Namespace) -> int:
+    config = load_config(getattr(args, "config", None))
+    base = config.broadcast
+    broadcast_config = BroadcastConfig(
+        enabled=True,
+        local=not args.hotspot,
+        server_ip=args.ip or base.server_ip,
+        ssid=args.ssid or base.ssid,
+        http_port=args.http_port or base.http_port,
+        https_port=args.https_port or base.https_port,
+        webrtc_port=args.webrtc_port or base.webrtc_port,
+        rtp_port=args.rtp_port or base.rtp_port,
+        audio_input=args.audio_input or base.audio_input,
+        sink_name=args.sink_name or base.sink_name,
+    )
+    broadcast_config.validate()
+
+    from .broadcast import BroadcastSession
+
+    session = BroadcastSession(broadcast_config)
+    session.start()
+    print(f"listener: {session.listener_url}")
+    print(f"speaker:  {session.speaker_url}")
+    print(f"QR:       {session.qr_url}")
+    print(f"log:      {session.log_path}")
+    print(
+        "broadcasting the translated-audio sink; "
+        "run `danglish talk --broadcast` to feed it English speech.",
+        flush=True,
+    )
+    previous = _install_stop_handlers()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        _restore_stop_handlers(previous)
+        session.stop()
+    return 0
+
+
 def cmd_talk(args: argparse.Namespace) -> int:
     if args.list_devices:
         try:
@@ -327,6 +403,15 @@ def cmd_talk(args: argparse.Namespace) -> int:
     config = _config_from_args(args)
     _require_model(config, mock=args.mock)
 
+    broadcast_config = config.broadcast
+    if getattr(args, "broadcast", False) or getattr(args, "broadcast_hotspot", False):
+        broadcast_config = _broadcast_config(
+            config.broadcast,
+            local=not args.broadcast_hotspot,
+            ssid=getattr(args, "broadcast_ssid", None),
+            server_ip=getattr(args, "broadcast_ip", None),
+        )
+
     try:
         from .audio.mic import run_talk
     except ImportError as exc:
@@ -337,6 +422,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
         ) from exc
 
     backend = create_backend(config, mock=args.mock)
+    previous = _install_stop_handlers()
     try:
         run_talk(
             backend,
@@ -362,8 +448,10 @@ def cmd_talk(args: argparse.Namespace) -> int:
             sentence_level=args.sentence_level,
             as_json=args.json,
             stats=args.stats,
+            broadcast=broadcast_config if broadcast_config.enabled else None,
         )
     finally:
+        _restore_stop_handlers(previous)
         backend.close()
     return 0
 
@@ -651,6 +739,36 @@ def build_parser() -> argparse.ArgumentParser:
     _add_context_option(serve)
     serve.set_defaults(func=cmd_serve)
 
+    broadcast = subparsers.add_parser(
+        "broadcast",
+        help="serve translated audio over the local Wi-Fi",
+        description=(
+            "Start the church broadcast server for the translated-audio sink. "
+            "Use `danglish talk --broadcast` to feed it English TTS."
+        ),
+    )
+    broadcast.add_argument("--config", type=Path, metavar="FILE", help="TOML configuration file")
+    broadcast.add_argument(
+        "--hotspot",
+        action="store_true",
+        help="create the open Wi-Fi hotspot with the production launcher (requires sudo)",
+    )
+    broadcast.add_argument("--ssid", help="hotspot SSID (default: Church_Live_Audio)")
+    broadcast.add_argument("--ip", help="LAN IP for listener URLs (default: auto-detect)")
+    broadcast.add_argument("--http-port", type=int, default=0)
+    broadcast.add_argument("--https-port", type=int, default=0)
+    broadcast.add_argument("--webrtc-port", type=int, default=0)
+    broadcast.add_argument("--rtp-port", type=int, default=0)
+    broadcast.add_argument(
+        "--audio-input",
+        help="PulseAudio source (default: danglish_broadcast.monitor)",
+    )
+    broadcast.add_argument(
+        "--sink-name",
+        help="Pulse null sink name (default: danglish_broadcast)",
+    )
+    broadcast.set_defaults(func=cmd_broadcast)
+
     talk = subparsers.add_parser(
         "talk",
         aliases=["mic"],
@@ -754,6 +872,22 @@ def build_parser() -> argparse.ArgumentParser:
     talk.add_argument("--list-devices", action="store_true", help="list audio devices and exit")
     talk.add_argument("--stats", action="store_true", help="print ASR/MT/TTS timings per turn")
     talk.add_argument("--json", action="store_true", help="emit JSON lines")
+    broadcast_group = talk.add_mutually_exclusive_group()
+    broadcast_group.add_argument(
+        "--broadcast",
+        action="store_true",
+        help=("serve the English TTS over the local network (LAN) and print listener/QR URLs"),
+    )
+    broadcast_group.add_argument(
+        "--broadcast-hotspot",
+        action="store_true",
+        help=(
+            "create the open Church_Live_Audio Wi-Fi hotspot and serve the English "
+            "TTS (requires sudo; restores Wi-Fi on exit)"
+        ),
+    )
+    talk.add_argument("--broadcast-ssid", help="hotspot SSID (default: Church_Live_Audio)")
+    talk.add_argument("--broadcast-ip", help="LAN IP for listener URLs (default: auto-detect)")
     _add_model_options(talk)
     _add_context_option(talk)
     talk.set_defaults(func=cmd_talk)

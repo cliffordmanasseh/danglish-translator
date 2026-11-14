@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0e0c0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Holstebro Pinsekirke</title>
+  <style>
+    :root {
+      --bg: #0e0c0a;
+      --card: #181411;
+      --border: #2e261f;
+      --gold: #d4af37;
+      --gold-light: #f3e5ab;
+      --text: #faf6f0;
+      --muted: #8c7f70;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background-color: #0e0c0a;
+      background-image: radial-gradient(circle at 50% 0%, #211b15 0%, #0e0c0a 75%);
+      color: #faf6f0;
+      font-family: Georgia, "Times New Roman", serif;
+      min-height: 100vh;
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      -webkit-box-pack: center;
+      -webkit-justify-content: center;
+      justify-content: center;
+    }
+
+    .sanctuary-card {
+      width: 100%;
+      max-width: 380px;
+      background-color: #181411;
+      border: 1px solid #2e261f;
+      border-radius: 28px;
+      padding: 40px 28px 36px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(212, 175, 55, 0.15);
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-box-direction: normal;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      -webkit-box-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .brand {
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-box-direction: normal;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      -webkit-box-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+
+    .cross-icon {
+      width: 36px;
+      height: 48px;
+      stroke: #d4af37;
+      stroke-width: 2.2;
+      fill: none;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.65rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: #f3e5ab;
+    }
+
+    .action-btn {
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      border: 2px solid #d4af37;
+      background-color: #1a1510;
+      background-image: radial-gradient(circle at 50% 30%, #2a2219 0%, #14100c 100%);
+      color: #f3e5ab;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+      -webkit-box-pack: center;
+      -webkit-justify-content: center;
+      justify-content: center;
+      margin-bottom: 36px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(212, 175, 55, 0.12);
+      transition: transform 0.12s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .action-btn:active {
+      -webkit-transform: scale(0.96);
+      transform: scale(0.96);
+    }
+
+    .action-btn.active {
+      border-color: #f3e5ab;
+      background-color: #b5891c;
+      background-image: radial-gradient(circle at 50% 30%, #c89d28 0%, #8a6810 100%);
+      color: #0e0c0a;
+      box-shadow: 0 0 40px rgba(212, 175, 55, 0.45);
+    }
+
+    .meter-wrap {
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .meter-header {
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-pack: justify;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8c7f70;
+      margin-bottom: 8px;
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 14px;
+      background-color: #0b0908;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #2e261f;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background-color: #d4af37;
+      background-image: linear-gradient(90deg, #8a6810 0%, #d4af37 65%, #f3e5ab 100%);
+      border-radius: 999px;
+      transition: width 0.06s linear;
+    }
+  </style>
+</head>
+<body>
+  <div class="sanctuary-card">
+    <div class="brand">
+      <svg class="cross-icon" viewBox="0 0 24 32">
+        <line x1="12" y1="2" x2="12" y2="30" stroke-linecap="round"/>
+        <line x1="4" y1="10" x2="20" y2="10" stroke-linecap="round"/>
+      </svg>
+      <h1>Holstebro Pinsekirke</h1>
+    </div>
+
+    <button id="speakBtn" class="action-btn" type="button">Speak</button>
+
+    <div class="meter-wrap">
+      <div class="meter-header">
+        <span>dB</span>
+        <span id="dbValue">-60 dB</span>
+      </div>
+      <div class="meter-track">
+        <div id="meterFill" class="meter-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var speakBtn = document.getElementById("speakBtn");
+      var meterFill = document.getElementById("meterFill");
+      var dbValue = document.getElementById("dbValue");
+
+      var isSpeaking = false;
+      var usingPhoneMic = false;
+      var whipPc = null;
+      var localStream = null;
+      var audioCtx = null;
+      var analyser = null;
+      var animId = null;
+      var wakeLockSentinel = null;
+
+      function postJSON(url, payload) {
+        try {
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", url, true);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.send(JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      function acquireWakeLock() {
+        if (navigator.wakeLock && navigator.wakeLock.request && isSpeaking) {
+          try {
+            navigator.wakeLock.request("screen").then(function (s) {
+              wakeLockSentinel = s;
+            }).catch(function () {});
+          } catch (_) {}
+        }
+      }
+
+      function releaseWakeLock() {
+        if (wakeLockSentinel && wakeLockSentinel.release) {
+          try { wakeLockSentinel.release(); } catch (_) {}
+          wakeLockSentinel = null;
+        }
+      }
+
+      function renderLocalMeter() {
+        if (!isSpeaking || !usingPhoneMic || !analyser) return;
+        var dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteTimeDomainData(dataArray);
+        var sum = 0;
+        for (var i = 0; i < dataArray.length; i++) {
+          var v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        var rms = Math.sqrt(sum / dataArray.length);
+        var db = rms > 0.0005 ? Math.max(-60, Math.min(0, 20 * (Math.log(rms) / Math.LN10))) : -60;
+        var pct = Math.round(((db + 60) / 60) * 100);
+        meterFill.style.width = pct + "%";
+        dbValue.textContent = Math.round(db) + " dB";
+        animId = window.requestAnimationFrame ? requestAnimationFrame(renderLocalMeter) : setTimeout(renderLocalMeter, 60);
+      }
+
+      function startSpeaking() {
+        isSpeaking = true;
+        speakBtn.classList.add("active");
+        speakBtn.textContent = "Stop";
+        acquireWakeLock();
+
+        postJSON("/api/mute", { muted: false });
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1
+            },
+            video: false
+          }).then(function (stream) {
+            if (!isSpeaking) {
+              stream.getTracks().forEach(function (t) { t.stop(); });
+              return;
+            }
+            localStream = stream;
+            var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass && !audioCtx) {
+              audioCtx = new AudioContextClass();
+            }
+            if (audioCtx && audioCtx.state === "suspended" && audioCtx.resume) {
+              audioCtx.resume();
+            }
+            if (audioCtx) {
+              var src = audioCtx.createMediaStreamSource(localStream);
+              analyser = audioCtx.createAnalyser();
+              analyser.fftSize = 256;
+              src.connect(analyser);
+            }
+
+            var PeerConnectionClass = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+            whipPc = new PeerConnectionClass({ iceServers: [] });
+            localStream.getTracks().forEach(function (track) {
+              whipPc.addTrack(track, localStream);
+            });
+
+            return whipPc.createOffer().then(function (offer) {
+              return whipPc.setLocalDescription(offer);
+            }).then(function () {
+              var xhr = new XMLHttpRequest();
+              xhr.open("POST", "/whip", true);
+              xhr.setRequestHeader("Content-Type", "application/json");
+              xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    var answer = JSON.parse(xhr.responseText);
+                    var SessionDesc = window.RTCSessionDescription || window.webkitRTCSessionDescription;
+                    whipPc.setRemoteDescription(new SessionDesc(answer));
+                    usingPhoneMic = true;
+                    renderLocalMeter();
+                  } catch (_) {}
+                }
+              };
+              xhr.send(JSON.stringify({
+                type: whipPc.localDescription.type,
+                sdp: whipPc.localDescription.sdp
+              }));
+            });
+          }).catch(function () {
+            usingPhoneMic = false;
+          });
+        }
+      }
+
+      function stopSpeaking() {
+        isSpeaking = false;
+        usingPhoneMic = false;
+        if (animId) {
+          if (window.cancelAnimationFrame) cancelAnimationFrame(animId);
+          clearTimeout(animId);
+          animId = null;
+        }
+        if (whipPc) {
+          try { whipPc.close(); } catch (_) {}
+          whipPc = null;
+        }
+        if (localStream) {
+          localStream.getTracks().forEach(function (t) { t.stop(); });
+          localStream = null;
+        }
+
+        postJSON("/api/mute", { muted: true });
+
+        meterFill.style.width = "0%";
+        dbValue.textContent = "-60 dB";
+        speakBtn.classList.remove("active");
+        speakBtn.textContent = "Speak";
+        releaseWakeLock();
+      }
+
+      speakBtn.addEventListener("click", function () {
+        if (isSpeaking) stopSpeaking();
+        else startSpeaking();
+      });
+
+      setInterval(function () {
+        if (!isSpeaking || usingPhoneMic) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/stats", true);
+        xhr.timeout = 1000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+              var st = JSON.parse(xhr.responseText);
+              var pct = st.muted ? 0 : Math.min(100, st.audio_level_pct || 0);
+              var db = Math.round(-60 + (pct / 100) * 60);
+              meterFill.style.width = pct + "%";
+              dbValue.textContent = db + " dB";
+            } catch (_) {}
+          }
+        };
+        xhr.send();
+      }, 250);
+    })();
+  </script>
+</body>
+</html>

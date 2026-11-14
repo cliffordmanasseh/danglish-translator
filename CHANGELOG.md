@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Wi-Fi broadcast: `danglish talk --broadcast` / `--broadcast-hotspot` routes
+  English TTS to a Pulse null sink and serves it over the copied church
+  WebRTC/MP3 server; printable QR posters and a dynamic `/qr` dashboard.
 - Fine-tuned OPUS-MT tc-big sermon edge model (int8): 228 MB, 304 MB RSS,
   143 ms p50, 0.8658 COMET; recommended edge default.
 - `release/sermon-opus-model/` model card, checksums, and archive.

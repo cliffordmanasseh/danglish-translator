@@ -150,3 +150,54 @@ server_url = "http://127.0.0.1:9999"
 
     assert config.model.backend == "llama"
     assert config.model.server_url == "http://127.0.0.1:9999"
+
+
+def test_broadcast_defaults() -> None:
+    config = AppConfig()
+    assert config.broadcast.enabled is False
+    assert config.broadcast.local is True
+    assert config.broadcast.server_ip == "auto"
+    assert config.broadcast.audio_input == "danglish_broadcast.monitor"
+    assert config.broadcast.http_port == 8080
+
+
+def test_broadcast_toml(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    path.write_text(
+        """
+[broadcast]
+enabled = true
+local = false
+ssid = "Church_Test"
+http_port = 9090
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert config.broadcast.enabled is True
+    assert config.broadcast.local is False
+    assert config.broadcast.ssid == "Church_Test"
+    assert config.broadcast.http_port == 9090
+
+
+def test_broadcast_invalid_port() -> None:
+    config = AppConfig()
+    config.broadcast.http_port = 0
+    with pytest.raises(ConfigError, match="broadcast.http_port"):
+        config.validate()
+
+
+def test_broadcast_environment_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DANGLISH_CONFIG", raising=False)
+    monkeypatch.setenv("DANGLISH_BROADCAST", "1")
+    monkeypatch.setenv("DANGLISH_BROADCAST_LOCAL", "0")
+    monkeypatch.setenv("DANGLISH_BROADCAST_SSID", "Church_Env")
+
+    config = load_config()
+
+    assert config.broadcast.enabled is True
+    assert config.broadcast.local is False
+    assert config.broadcast.ssid == "Church_Env"

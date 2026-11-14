@@ -108,6 +108,29 @@ uv run --no-sync danglish translate "God morgen, hvordan har du det?"
 uv run --no-sync danglish serve        # http://127.0.0.1:8765 (text UI, no microphone)
 ```
 
+### Wi-Fi broadcast
+
+For a congregation, `danglish talk --broadcast` sends the English TTS to a
+dedicated Pulse null sink and starts the local church broadcast server. Phones
+on the same Wi-Fi open the listener URL; no app or internet is needed.
+
+```bash
+# LAN mode: uses the laptop's current Wi-Fi and auto-detects its IP
+danglish talk --broadcast
+
+# Production hotspot: creates the open Church_Live_Audio Wi-Fi (sudo),
+# prints listener/QR URLs, and restores Wi-Fi on exit
+danglish talk --broadcast-hotspot
+
+# Server only (feed it with `danglish talk --broadcast` from another terminal)
+danglish broadcast
+```
+
+The server is a copied, unmodified build of the Holstebro Pinsekirke broadcast
+project; see [`broadcast/README.md`](broadcast/README.md). It fans out WebRTC and
+an HTTP MP3 fallback, and includes printable QR posters. The original project
+directory is not modified.
+
 ## How it works
 
 ```text

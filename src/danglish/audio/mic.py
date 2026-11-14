@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 from ..backends.base import TranslatorBackend
-from ..config import AppConfig
+from ..config import AppConfig, BroadcastConfig
 from ..context import ContextProfile, get_profile
 from ..errors import DanglishError, DependencyMissingError
 from ..memory import current_rss_mb
@@ -58,6 +58,7 @@ def run_talk(
     sentence_level: bool = False,
     as_json: bool = False,
     stats: bool = False,
+    broadcast: BroadcastConfig | None = None,
 ) -> None:
     try:
         import sounddevice as sd
@@ -67,6 +68,23 @@ def run_talk(
             "  uv:  uv sync --extra speech\n"
             "  apt: sudo apt install libportaudio2"
         ) from exc
+
+    broadcast_session = None
+    if broadcast is not None and broadcast.enabled:
+        if not enable_tts:
+            raise DanglishError("broadcast requires TTS; remove --no-tts")
+        from ..broadcast import BroadcastSession
+
+        broadcast_session = BroadcastSession(broadcast)
+        broadcast_session.start()
+        print(f"broadcast:    {broadcast_session.listener_url}", file=sys.stderr)
+        print(f"operator QR:  {broadcast_session.qr_url}", file=sys.stderr)
+        print(f"speaker page: {broadcast_session.speaker_url}", file=sys.stderr)
+        if not broadcast.local:
+            print(
+                "broadcast:    hotspot mode; the Wi-Fi will be restored on exit",
+                file=sys.stderr,
+            )
 
     in_index = resolve_device(sd, input_device, "input")
     in_info = sd.query_devices(in_index, "input")
@@ -154,6 +172,11 @@ def run_talk(
         )
 
         def play(audio: np.ndarray, sample_rate: int) -> None:
+            if broadcast_session is not None:
+                try:
+                    broadcast_session.write(audio, sample_rate)
+                except Exception as exc:
+                    print(f"broadcast: {exc}", file=sys.stderr, flush=True)
             if output_stream is None or played_rate is None or played_channels is None:
                 return
             resampled = resample_audio(audio, sample_rate, played_rate)
@@ -294,6 +317,9 @@ def run_talk(
                 output_stream.abort()
             with contextlib.suppress(Exception):
                 output_stream.close()
+        if broadcast_session is not None:
+            with contextlib.suppress(Exception):
+                broadcast_session.stop()
         print("\nstopped.", file=sys.stderr)
 
 

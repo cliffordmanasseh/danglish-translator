@@ -61,6 +61,14 @@ EuroLLM-1.7B sermon LoRA (Q5_K_M)
   release/sermon-model/MODEL_CARD.md. The model is not bundled in the default
   installer.
 
+CHURCH BROADCAST SERVER
+-----------------------
+The Go server, production launcher, listener/speaker pages, printable QR
+posters, and vendored Go dependencies in broadcast/church/ are copied from the
+Holstebro Pinsekirke / Ferrum audio broadcast project. The original project is
+retained unchanged. The copied server fans out the English TTS over WebRTC and
+HTTP MP3. See broadcast/README.md and broadcast/church/README.md.
+
 LICENSING NOTES
 ---------------
 piper-tts is an optional speech-output dependency and is licensed under the GNU

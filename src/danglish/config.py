@@ -24,6 +24,9 @@ ENV_CONFIG = "DANGLISH_CONFIG"
 ENV_MODEL = "DANGLISH_MODEL"
 ENV_BACKEND = "DANGLISH_BACKEND"
 ENV_SERVER_URL = "DANGLISH_SERVER_URL"
+ENV_BROADCAST = "DANGLISH_BROADCAST"
+ENV_BROADCAST_LOCAL = "DANGLISH_BROADCAST_LOCAL"
+ENV_BROADCAST_SSID = "DANGLISH_BROADCAST_SSID"
 
 COMPUTE_TYPES = ("int8", "int8_float32", "float32", "bfloat16", "int16", "float16")
 
@@ -94,17 +97,54 @@ class TTSConfig:
 
 
 @dataclass(slots=True)
+class BroadcastConfig:
+    """Local Wi-Fi audio broadcast settings.
+
+    ``local=True`` starts the server directly on the LAN without changing the
+    Wi-Fi configuration. ``local=False`` uses the production launcher, which
+    creates the open hotspot and requires sudo.
+    """
+
+    enabled: bool = False
+    local: bool = True
+    server_ip: str = "auto"
+    ssid: str = "Church_Live_Audio"
+    http_port: int = 8080
+    https_port: int = 8443
+    webrtc_port: int = 8555
+    rtp_port: int = 5004
+    audio_input: str = "danglish_broadcast.monitor"
+    sink_name: str = "danglish_broadcast"
+
+    def validate(self) -> None:
+        if not self.server_ip.strip():
+            raise ConfigError("broadcast.server_ip must not be empty")
+        if not self.ssid.strip():
+            raise ConfigError("broadcast.ssid must not be empty")
+        if not self.audio_input.strip():
+            raise ConfigError("broadcast.audio_input must not be empty")
+        if not self.sink_name.strip():
+            raise ConfigError("broadcast.sink_name must not be empty")
+        for name in ("http_port", "https_port", "webrtc_port", "rtp_port"):
+            port = getattr(self, name)
+            if not 1 <= port <= 65535:
+                raise ConfigError(f"broadcast.{name} must be between 1 and 65535")
+
+
+@dataclass(slots=True)
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     stream: StreamConfig = field(default_factory=StreamConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     tts: TTSConfig = field(default_factory=TTSConfig)
+    broadcast: BroadcastConfig = field(default_factory=BroadcastConfig)
 
     def validate(self) -> None:
         self.model.validate()
         self.stream.validate()
         self.server.validate()
         self.tts.validate()
+        self.broadcast.validate()
 
 
 def _apply_table(config: AppConfig, table: str, values: object) -> None:
@@ -128,6 +168,12 @@ def _apply_table(config: AppConfig, table: str, values: object) -> None:
         elif isinstance(current, str) and not isinstance(value, str):
             raise ConfigError(f"{table}.{key} must be a string")
         setattr(target, key, value)
+
+
+def _env_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def load_config(path: Path | str | None = None) -> AppConfig:
@@ -170,6 +216,13 @@ def load_config(path: Path | str | None = None) -> AppConfig:
     env_server = os.environ.get(ENV_SERVER_URL)
     if env_server:
         config.model.server_url = env_server
+    if _env_bool(os.environ.get(ENV_BROADCAST)):
+        config.broadcast.enabled = True
+    if ENV_BROADCAST_LOCAL in os.environ:
+        config.broadcast.local = _env_bool(os.environ.get(ENV_BROADCAST_LOCAL))
+    env_ssid = os.environ.get(ENV_BROADCAST_SSID)
+    if env_ssid:
+        config.broadcast.ssid = env_ssid
 
     config.validate()
     return config

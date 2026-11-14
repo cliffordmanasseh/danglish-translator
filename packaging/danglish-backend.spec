@@ -47,12 +47,32 @@ hiddenimports += [
     "danglish.audio.device",
     "danglish.audio.mic",
     "danglish.audio.runtime",
+    "danglish.broadcast",
     "danglish.context",
     "danglish.speech",
     "danglish.tts",
     "danglish.audio.util",
     "danglish.audio.vad",
 ]
+
+# Church broadcast assets: the prebuilt Go server, the production launcher, and
+# the printable QR posters. The Go source/vendor tree is not needed at runtime.
+# The broadcast backend is Linux-only (PipeWire/PulseAudio), so non-Linux
+# bundles must not ship a Linux ELF binary.
+broadcast_dir = root / "broadcast" / "church"
+if sys.platform.startswith("linux") and broadcast_dir.is_dir():
+    for name in (
+        "start_church_broadcast.sh",
+        "QR_1_WiFi.pdf",
+        "QR_2_Listener.pdf",
+        "QR_3_Speaker.pdf",
+    ):
+        path = broadcast_dir / name
+        if path.is_file():
+            datas.append((str(path), "broadcast/church"))
+    broadcast_binary = broadcast_dir / "church-audio-server"
+    if broadcast_binary.is_file():
+        binaries.append((str(broadcast_binary), "broadcast/church"))
 
 # sounddevice loads PortAudio through ctypes. On Linux, copy the system library so
 # the AppImage does not depend on the host having libportaudio installed.
