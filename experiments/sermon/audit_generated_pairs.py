@@ -31,9 +31,35 @@ from collections import Counter
 from pathlib import Path
 
 DANISH_WORDS = {
-    "og", "ikke", "der", "som", "jeg", "vi", "til", "på", "er", "med",
-    "af", "den", "det", "en", "et", "har", "kan", "skal", "være", "blev",
-    "bliver", "også", "men", "så", "hvad", "hvor", "når", "vores", "deres",
+    "og",
+    "ikke",
+    "der",
+    "som",
+    "jeg",
+    "vi",
+    "til",
+    "på",
+    "er",
+    "med",
+    "af",
+    "den",
+    "det",
+    "en",
+    "et",
+    "har",
+    "kan",
+    "skal",
+    "være",
+    "blev",
+    "bliver",
+    "også",
+    "men",
+    "så",
+    "hvad",
+    "hvor",
+    "når",
+    "vores",
+    "deres",
 }
 NUMBER_RE = re.compile(r"\d+")
 
@@ -113,7 +139,9 @@ def main() -> None:
 
         words = target.lower().split()
         if words:
-            danish_rate = sum(1 for word in words if word.strip(".,!?;:»«\"'") in DANISH_WORDS) / len(words)
+            danish_rate = sum(
+                1 for word in words if word.strip(".,!?;:»«\"'") in DANISH_WORDS
+            ) / len(words)
             if danish_rate > args.danish_threshold:
                 row_reasons.append("danish_residue")
 
@@ -171,12 +199,18 @@ def main() -> None:
         "glossary_accuracy": round(glossary_hits / opportunities, 4) if opportunities else 0.0,
         "glossary_misses": glossary_misses,
     }
-    args.output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    args.output.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     args.flagged.parent.mkdir(parents=True, exist_ok=True)
     with args.flagged.open("w", encoding="utf-8") as handle:
         for row in flagged_rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(json.dumps({key: value for key, value in summary.items() if key != "glossary_misses"}, indent=2))
+    print(
+        json.dumps(
+            {key: value for key, value in summary.items() if key != "glossary_misses"}, indent=2
+        )
+    )
 
 
 if __name__ == "__main__":

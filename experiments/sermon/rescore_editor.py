@@ -35,12 +35,17 @@ def main() -> None:
 
     missing = [row["source"] for row in predictions if row["source"] not in editor]
     if missing:
-        raise SystemExit(f"{len(missing)} predictions have no editor reference, first: {missing[0][:80]}")
+        raise SystemExit(
+            f"{len(missing)} predictions have no editor reference, first: {missing[0][:80]}"
+        )
 
     for row in predictions:
         row["reference"] = editor[row["source"]]
 
-    out = {"model": data.get("model", args.results.stem) + "+editor-ref", "predictions": predictions}
+    out = {
+        "model": data.get("model", args.results.stem) + "+editor-ref",
+        "predictions": predictions,
+    }
     args.output.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {len(predictions)} rows to {args.output}")
 

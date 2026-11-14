@@ -167,9 +167,7 @@ def main() -> None:
     updates_per_epoch = math.ceil(len(train_loader) / args.grad_accum)
     total_steps = max(1, args.epochs * updates_per_epoch)
     warmup_steps = int(total_steps * args.warmup_ratio)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
     )
@@ -201,9 +199,7 @@ def main() -> None:
             loss_since_log += float(loss.detach()) * args.grad_accum
             steps_since_log += 1
 
-            if (batch_index + 1) % args.grad_accum == 0 or (batch_index + 1) == len(
-                train_loader
-            ):
+            if (batch_index + 1) % args.grad_accum == 0 or (batch_index + 1) == len(train_loader):
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 scaler.step(optimizer)

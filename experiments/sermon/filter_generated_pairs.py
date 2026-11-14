@@ -21,9 +21,35 @@ from collections import Counter
 from pathlib import Path
 
 DANISH_WORDS = {
-    "og", "ikke", "der", "som", "jeg", "vi", "til", "på", "er", "med",
-    "af", "den", "det", "en", "et", "har", "kan", "skal", "være", "blev",
-    "bliver", "også", "men", "så", "hvad", "hvor", "når", "vores", "deres",
+    "og",
+    "ikke",
+    "der",
+    "som",
+    "jeg",
+    "vi",
+    "til",
+    "på",
+    "er",
+    "med",
+    "af",
+    "den",
+    "det",
+    "en",
+    "et",
+    "har",
+    "kan",
+    "skal",
+    "være",
+    "blev",
+    "bliver",
+    "også",
+    "men",
+    "så",
+    "hvad",
+    "hvor",
+    "når",
+    "vores",
+    "deres",
 }
 FRAGMENT_END_RE = re.compile(r"[,;:–—-]\s*$")
 REFERENCE_RE = re.compile(
@@ -72,9 +98,9 @@ def rejection_reason(row: dict, args: argparse.Namespace) -> str | None:
 
     words = target.lower().split()
     if words:
-        danish_rate = sum(
-            1 for word in words if word.strip(".,!?;:»«\"'") in DANISH_WORDS
-        ) / len(words)
+        danish_rate = sum(1 for word in words if word.strip(".,!?;:»«\"'") in DANISH_WORDS) / len(
+            words
+        )
         if danish_rate > args.danish_threshold:
             return "danish_residue"
     return None
@@ -99,9 +125,10 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.rejected.parent.mkdir(parents=True, exist_ok=True)
 
-    with args.output.open("w", encoding="utf-8") as out, args.rejected.open(
-        "w", encoding="utf-8"
-    ) as bad:
+    with (
+        args.output.open("w", encoding="utf-8") as out,
+        args.rejected.open("w", encoding="utf-8") as bad,
+    ):
         for line in args.input.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue

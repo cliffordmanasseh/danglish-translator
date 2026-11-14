@@ -41,7 +41,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    rows = [json.loads(line) for line in args.input.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [
+        json.loads(line)
+        for line in args.input.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     meta = {}
     if args.metadata:
         meta = {
@@ -59,7 +63,9 @@ def main() -> None:
             per_decade = max(1, args.sample // max(1, len(by_decade)))
             sampled = []
             for decade in sorted(by_decade):
-                sampled.extend(rng.sample(by_decade[decade], min(per_decade, len(by_decade[decade]))))
+                sampled.extend(
+                    rng.sample(by_decade[decade], min(per_decade, len(by_decade[decade])))
+                )
             rows = sampled
         else:
             rows = random.Random(args.seed).sample(rows, args.sample)
@@ -85,14 +91,14 @@ def main() -> None:
 
     sources = [row["source"] for row in rows]
     corpus_chrf = sacrebleu.corpus_chrf(backtranslations, [sources], word_order=2).score
-    scores = [sentence_chrf(hyp, src) for hyp, src in zip(backtranslations, sources)]
+    scores = [sentence_chrf(hyp, src) for hyp, src in zip(backtranslations, sources, strict=False)]
 
     by_decade_scores: dict[str, list[float]] = defaultdict(list)
-    for row, score in zip(rows, scores):
+    for row, score in zip(rows, scores, strict=False):
         year = int(meta.get(row.get("id", ""), {}).get("year", 0))
         by_decade_scores[f"{(year // 10) * 10}s" if year else "unknown"].append(score)
 
-    ranked = sorted(zip(scores, rows, backtranslations), key=lambda item: item[0])
+    ranked = sorted(zip(scores, rows, backtranslations, strict=False), key=lambda item: item[0])
     summary = {
         "rows": len(rows),
         "corpus_chrf++": round(corpus_chrf, 2),
@@ -118,10 +124,12 @@ def main() -> None:
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    args.output.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     if args.scores:
         with args.scores.open("w", encoding="utf-8") as handle:
-            for score, row, back in zip(scores, rows, backtranslations):
+            for score, row, back in zip(scores, rows, backtranslations, strict=False):
                 handle.write(
                     json.dumps(
                         {

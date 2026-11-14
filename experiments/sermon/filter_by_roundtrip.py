@@ -57,9 +57,10 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.rejected.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8") as out, args.rejected.open(
-        "w", encoding="utf-8"
-    ) as bad:
+    with (
+        args.output.open("w", encoding="utf-8") as out,
+        args.rejected.open("w", encoding="utf-8") as bad,
+    ):
         for line in args.input.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -71,7 +72,10 @@ def main() -> None:
             if scored is None:
                 missing += 1
                 if args.drop_missing:
-                    bad.write(json.dumps({**row, "filter_reason": "missing_score"}, ensure_ascii=False) + "\n")
+                    bad.write(
+                        json.dumps({**row, "filter_reason": "missing_score"}, ensure_ascii=False)
+                        + "\n"
+                    )
                     rejected += 1
                     continue
                 out.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -99,7 +103,9 @@ def main() -> None:
         "rejected": rejected,
         "missing_scores": missing,
         "min_score": args.min_score,
-        "kept_mean_score": round(statistics.mean([s for v in by_decade_kept.values() for s in v]), 2)
+        "kept_mean_score": round(
+            statistics.mean([s for v in by_decade_kept.values() for s in v]), 2
+        )
         if by_decade_kept
         else 0.0,
         "by_decade_kept": {k: len(v) for k, v in sorted(by_decade_kept.items())},

@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
-import os
 from pathlib import Path
 
 
