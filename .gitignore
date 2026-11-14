@@ -47,3 +47,7 @@ release/sermon-model/*.gguf
 .idea/
 .vscode/
 *.swp
+
+# OPUS sermon model binaries and release archive
+release/sermon-opus-model/opus-mt-tc-big-gmq-en-sermon-int8/
+release/sermon-opus-int8.tar.gz
