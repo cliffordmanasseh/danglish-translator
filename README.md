@@ -160,19 +160,48 @@ half-duplex audio model, and the memory strategy. Detailed measurements are in
 - **Piper en_GB-alba-medium** is a 63 MB English voice that synthesizes at roughly 20×
   real time on CPU and is licensed CC BY 4.0.
 
-### Sermon translation model (optional)
+### Sermon translation models (optional)
 
-For preaching, an optional EuroLLM-1.7B LoRA is available. It is much larger
-than the default OPUS-MT model but preserves theological terminology and
-biblical quotations better:
+For preaching, two optional models are available. The **OPUS-MT tc-big
+fine-tune is the recommended edge default**: it keeps the small/fast
+CTranslate2 profile and most of the quality gain.
 
-| Model | COMET | chrF++ | BLEU | Glossary |
-|---|---:|---:|---:|---:|
-| OPUS-MT tc-big | 0.8316 | 63.34 | 44.42 | 13/17 |
-| EuroLLM sermon, Q5_K_M | **0.8663** | **70.76** | **51.45** | **14/17** |
+| Model | COMET | chrF++ | BLEU | Glossary | RSS |
+|---|---:|---:|---:|---:|---:|
+| OPUS-MT tc-big base | 0.8412 | 62.41 | 43.72 | 95/115 | 304 MB |
+| **OPUS-MT sermon int8** | **0.8658** | **68.92** | **52.15** | **97/115** | **304 MB** |
+| EuroLLM 1.7B sermon, Q5_K_M | **0.8768** | **71.31** | **55.60** | **102/115** | 1.87 GB |
 
-It runs as a local llama.cpp server and uses ~1.29 GB RSS with ~270 ms p50.
-Enable it with:
+199 held-out sentences from 115 sermons; references are Qwen-generated. The
+OPUS fine-tune is +0.0246 over the base and only 0.0110 behind the 1.7B, at
+~1/6 the memory.
+
+#### OPUS-MT edge model (recommended)
+
+`release/sermon-opus-model/opus-mt-tc-big-gmq-en-sermon-int8/` is a 228 MB
+CTranslate2 int8 model. Enable it with:
+
+```bash
+danglish translate \
+  --model-path release/sermon-opus-model/opus-mt-tc-big-gmq-en-sermon-int8 \
+  "Gud er kærlighed."
+```
+
+or in `danglish.toml`:
+
+```toml
+[model]
+path = "release/sermon-opus-model/opus-mt-tc-big-gmq-en-sermon-int8"
+compute_type = "int8"
+```
+
+It runs in ~304 MB RSS at ~143 ms p50, so the full speech stack stays under
+2 GB.
+
+#### EuroLLM 1.7B premium model
+
+The 1.7B model is the quality leader. It runs as a local llama.cpp server and
+uses ~1.29 GB RSS with ~270 ms p50. Enable it with:
 
 ```bash
 # terminal 1
@@ -192,11 +221,12 @@ backend = "llama"
 server_url = "http://127.0.0.1:18080"
 ```
 
-The model files are in [`release/sermon-model/`](release/sermon-model/); see its
+The model files are in [`release/sermon-model/`](release/sermon-model/) and
+[`release/sermon-opus-model/`](release/sermon-opus-model/); see their
 `MODEL_CARD.md`. The fine-tuned weights are **research-use-only** because the
 training data includes modern sermons with unknown rights. The default
-installer does not bundle them. The full speech stack plus this model exceeds
-the 2 GB budget; it is intended for text-only or higher-memory deployments.
+installer does not bundle them. The full speech stack plus the 1.7B model
+exceeds the 2 GB budget; the OPUS edge model fits.
 
 ## Measured footprint
 
@@ -208,6 +238,7 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 |---|---:|---:|---|
 | Text translation | ~77 MB | **147 MB** | 10-sentence corpus, p50 36 ms |
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
+| Text, sermon OPUS int8 | 228 MB | **304 MB** | 199-sentence set, p50 ~143 ms |
 | Text, sermon Q5 backend | 1.2 GB | **1.29 GB** | 768 ctx, 1 slot, p50 ~270 ms |
 | Full speech-to-speech | ~375 MB | **~1.0 GB** | Danish ASR + MT + Piper, multi-turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
@@ -441,6 +472,7 @@ their own licenses:
 | Component | Model | License |
 |---|---|---|
 | Translation | `Helsinki-NLP/opus-mt-da-en` | Apache-2.0 |
+| Sermon edge translation (optional) | OPUS-MT tc-big sermon fine-tune (int8) | Base Apache-2.0; fine-tuned weights research-use-only (data rights) |
 | Sermon translation (optional) | EuroLLM-1.7B sermon LoRA (`Q5_K_M`) | Base Apache-2.0; fine-tuned weights research-use-only (data rights) |
 | ASR | `lucasw89/whisper-small-danish-ct2-int8` (Danish fine-tune of OpenAI Whisper small) | MIT |
 | TTS voice | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
