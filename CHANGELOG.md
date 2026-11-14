@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Fine-tuned OPUS-MT tc-big sermon edge model (int8): 228 MB, 304 MB RSS,
+  143 ms p50, 0.8658 COMET; recommended edge default.
+- `release/sermon-opus-model/` model card, checksums, and archive.
 - Optional `llama` backend for the EuroLLM-1.7B sermon translation model
   (Q5_K_M): 0.8663 COMET on 60 held-out sermons, ~1.29 GB RSS, ~270 ms p50.
 - `release/sermon-model/` with model card, checksums, and a dependency-free

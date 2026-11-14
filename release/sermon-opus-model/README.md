@@ -8,9 +8,8 @@ It runs in **304 MB RSS** at **143 ms p50** and scores **0.8658 COMET** on a
 ## Quick start
 
 ```bash
-# Extract the archive (if you downloaded the .tar.gz)
+# Extract the archive (files land in the current directory)
 tar -xzf sermon-opus-int8.tar.gz
-cd sermon-opus-model
 
 # Verify
 sha256sum -c SHA256SUMS
