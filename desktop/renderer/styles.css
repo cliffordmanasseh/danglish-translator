@@ -406,6 +406,27 @@ input[type="number"]:focus {
   line-height: 1.45;
 }
 
+.broadcast-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: -6px 0 0;
+}
+
+.broadcast-links.hidden {
+  display: none;
+}
+
+.broadcast-links a {
+  color: var(--blue);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.broadcast-links a:hover {
+  text-decoration: underline;
+}
+
 .sidebar-spacer {
   flex: 1;
   min-height: 8px;

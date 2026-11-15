@@ -98,6 +98,7 @@ function buildBackendArgs(settings) {
   } else {
     args.push("--no-tts");
   }
+  if (settings.broadcastEnabled) args.push("--broadcast");
 
   args.push("--context", settings.context || "general");
 
@@ -146,6 +147,16 @@ function handleBackendLine(line) {
     sendStatus("starting", "Models ready");
   } else if (trimmed.startsWith("listening —")) {
     sendStatus("listening", "Listening");
+  } else if (trimmed.startsWith("broadcast:")) {
+    send("backend:info", {
+      key: "broadcast",
+      value: trimmed.replace(/^broadcast:\s*/, ""),
+    });
+  } else if (trimmed.startsWith("operator QR:")) {
+    send("backend:info", {
+      key: "broadcastQr",
+      value: trimmed.replace(/^operator QR:\s*/, ""),
+    });
   } else if (trimmed.startsWith("audio input:")) {
     send("backend:info", { key: "input", value: trimmed.replace(/^audio input:\s*/, "") });
   } else if (trimmed.startsWith("audio output:")) {

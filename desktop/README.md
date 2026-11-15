@@ -34,7 +34,10 @@ model (for example the sermon edge model in `release/sermon-opus-model/`). Set
 `DANGLISH_DEVTOOLS=1` to open Chromium DevTools on launch.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
-point. The last 100 caption turns are kept in the app's local storage until you press
+point. The sidebar **Broadcast to phones** toggle serves the English TTS over the same
+Wi-Fi and shows listener/QR links after startup; it requires **Speak English** to be on.
+Hotspot mode still uses the CLI: `danglish talk --broadcast-hotspot ...`.
+The last 100 caption turns are kept in the app's local storage until you press
 **Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the tiny-voca voice are downloaded on
 first use; the MT model must already exist from `danglish fetch`.
 

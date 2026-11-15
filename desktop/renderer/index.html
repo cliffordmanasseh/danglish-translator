@@ -55,8 +55,8 @@
         </div>
 
         <div class="control">
-          <label class="label" for="contextSelect">Terminology</label>
-          <select id="contextSelect"></select>
+          <label class="label" for="contextSelect">Terminology (wording only)</label>
+          <select id="contextSelect" title="Changes word choice, not the TTS voice or translation model."></select>
           <p class="hint" id="contextHint">Neutral everyday translation.</p>
         </div>
 
@@ -75,6 +75,19 @@
           </span>
           <input type="checkbox" id="ttsEnabled" class="switch" checked />
         </label>
+
+        <label class="switch-row">
+          <span>
+            <strong>Broadcast to phones</strong>
+            <small>Same Wi-Fi; start listening to apply</small>
+          </span>
+          <input type="checkbox" id="broadcastEnabled" class="switch" />
+        </label>
+
+        <div class="broadcast-links hidden" id="broadcastLinks">
+          <a id="broadcastUrl" href="#" target="_blank" rel="noreferrer">Listener page</a>
+          <a id="broadcastQr" href="#" target="_blank" rel="noreferrer">QR code</a>
+        </div>
 
         <p class="side-note" id="duplexNote">
           Use headphones or isolated audio I/O in full-duplex mode.

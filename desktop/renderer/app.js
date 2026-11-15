@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   minEnergy: 0.006,
   asrModel: DEFAULT_ASR_MODEL,
   voice: "M2",
+  broadcastEnabled: false,
 };
 
 const FALLBACK_CONTEXTS = [
@@ -45,6 +46,8 @@ const state = {
   rss: "",
   inputInfo: "",
   outputInfo: "",
+  broadcastUrl: "",
+  broadcastQr: "",
   feedStarted: false,
   emptyMarkup: "",
   history: loadHistory(),
@@ -63,6 +66,10 @@ const els = {
   contextBadge: $("contextBadge"),
   fullDuplex: $("fullDuplex"),
   ttsEnabled: $("ttsEnabled"),
+  broadcastEnabled: $("broadcastEnabled"),
+  broadcastLinks: $("broadcastLinks"),
+  broadcastUrl: $("broadcastUrl"),
+  broadcastQr: $("broadcastQr"),
   duplexNote: $("duplexNote"),
   settingsBtn: $("settingsBtn"),
   legalBtn: $("legalBtn"),
@@ -227,6 +234,20 @@ function updateDuplexUi() {
     : "Half-duplex — the mic pauses while English audio plays.";
 }
 
+function updateBroadcastUi() {
+  const url = state.broadcastUrl;
+  const qr = state.broadcastQr;
+  els.broadcastLinks.classList.toggle("hidden", !url && !qr);
+  if (url) {
+    els.broadcastUrl.href = url;
+    els.broadcastUrl.title = url;
+  }
+  if (qr) {
+    els.broadcastQr.href = qr;
+    els.broadcastQr.title = qr;
+  }
+}
+
 function populateContexts() {
   els.contextSelect.replaceChildren();
   for (const context of state.contexts) {
@@ -389,6 +410,7 @@ function setSettingsFromControls() {
   state.settings.context = els.contextSelect.value;
   state.settings.fullDuplex = els.fullDuplex.checked;
   state.settings.ttsEnabled = els.ttsEnabled.checked;
+  state.settings.broadcastEnabled = els.broadcastEnabled.checked;
   saveSettings();
   updateContextUi();
   updateDuplexUi();
@@ -519,6 +541,12 @@ function handleInfo(payload) {
   } else if (payload.key === "output") {
     state.outputInfo = payload.value;
     updateDeviceInfo();
+  } else if (payload.key === "broadcast") {
+    state.broadcastUrl = payload.value || "";
+    updateBroadcastUi();
+  } else if (payload.key === "broadcastQr") {
+    state.broadcastQr = payload.value || "";
+    updateBroadcastUi();
   } else if (payload.key === "capture" || payload.key === "playback") {
     els.logs.title = `${payload.key}: ${payload.value}`;
   }
@@ -527,6 +555,13 @@ function handleInfo(payload) {
 async function startListening() {
   if (!window.danglish || state.busy) return;
   setSettingsFromControls();
+  if (state.settings.broadcastEnabled && !state.settings.ttsEnabled) {
+    showToast("Broadcast needs Speak English enabled.");
+    return;
+  }
+  state.broadcastUrl = "";
+  state.broadcastQr = "";
+  updateBroadcastUi();
   addSessionDivider(`Session ${new Date().toLocaleTimeString()}`);
   setStatus("starting", "Starting the local models…");
   try {
@@ -541,6 +576,9 @@ async function startListening() {
 
 async function stopListening() {
   if (!window.danglish) return;
+  state.broadcastUrl = "";
+  state.broadcastQr = "";
+  updateBroadcastUi();
   setStatus("stopping", "Closing the audio streams…");
   try {
     await window.danglish.stop();
@@ -626,8 +664,20 @@ function bindEvents() {
     if (state.running) showToast("Full-duplex changed. Restart listening to apply it.");
   });
   els.ttsEnabled.addEventListener("change", () => {
+    if (!els.ttsEnabled.checked && els.broadcastEnabled.checked) {
+      els.broadcastEnabled.checked = false;
+      showToast("Broadcast turned off because Speak English is off.");
+    }
     setSettingsFromControls();
     if (state.running) showToast("Voice output changed. Restart listening to apply it.");
+  });
+  els.broadcastEnabled.addEventListener("change", () => {
+    if (els.broadcastEnabled.checked && !els.ttsEnabled.checked) {
+      els.ttsEnabled.checked = true;
+      showToast("Speak English enabled for broadcast.");
+    }
+    setSettingsFromControls();
+    if (state.running) showToast("Broadcast changed. Restart listening to apply it.");
   });
 
   els.form.addEventListener("submit", saveDialogSettings);
@@ -675,9 +725,11 @@ async function bootstrap() {
   }
   els.fullDuplex.checked = state.settings.fullDuplex !== false;
   els.ttsEnabled.checked = state.settings.ttsEnabled !== false;
+  els.broadcastEnabled.checked = state.settings.broadcastEnabled === true;
   els.contextSelect.value = state.settings.context;
   updateContextUi();
   updateDuplexUi();
+  updateBroadcastUi();
 
   if (!window.danglish) {
     els.modelInfo.textContent = "Open in Electron";
