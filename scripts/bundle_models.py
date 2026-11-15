@@ -26,7 +26,12 @@ from danglish.models import (
     ensure_model,
     model_is_ready,
 )
-from danglish.tts import DEFAULT_VOICE, ensure_voice
+from danglish.tts import (
+    DEFAULT_TINY_VOCA_VOICE,
+    TINY_VOCA_ONNX,
+    TINY_VOCA_REPO,
+    TINY_VOCA_VOICES,
+)
 
 WHISPER_REPO = "lucasw89/whisper-small-danish-ct2-int8"
 WHISPER_FILES = [
@@ -44,11 +49,6 @@ def _copy_dir(source: Path, destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination)
-
-
-def _copy_file(source: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
 
 
 def bundle_mt(
@@ -112,36 +112,46 @@ def bundle_asr(output: Path, *, repo_id: str, force: bool) -> Path:
     return destination
 
 
-def bundle_voice(output: Path, *, voice: str, force: bool) -> Path:
-    destination = output / "voices"
-    model_name = Path(voice).name
-    if not model_name.endswith(".onnx"):
-        model_name = f"{voice}.onnx"
-    target = destination / model_name
-    config = destination / f"{model_name}.json"
-    if target.is_file() and config.is_file() and not force:
-        print(f"TTS: reusing {target} ({target.stat().st_size / (1024 * 1024):,.0f} MB)")
-        return target
+def bundle_tiny_voca(output: Path, *, repo_id: str, force: bool) -> Path:
+    destination = output / "tiny-voca"
+    model = destination / TINY_VOCA_ONNX
+    phonemizer = destination / "phonemizer" / "lexicon.tsv"
+    if model.is_file() and phonemizer.is_file() and not force:
+        print(f"TTS: reusing {destination} ({directory_size_mb(destination):,.0f} MB)")
+        return destination
 
-    print(f"TTS: preparing voice {voice} ...")
-    source_model, source_config = ensure_voice(voice)
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as exc:
+        raise SystemExit("huggingface-hub is required to bundle tiny-voca") from exc
+
+    print(f"TTS: downloading {repo_id} ...")
+    if force and destination.exists():
+        shutil.rmtree(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    _copy_file(source_model, target)
-    _copy_file(source_config, config)
+    snapshot_download(
+        repo_id=repo_id,
+        local_dir=destination,
+        allow_patterns=[TINY_VOCA_ONNX, "phonemizer/*"],
+    )
+    shutil.rmtree(destination / ".cache", ignore_errors=True)
+
+    if not model.is_file() or not phonemizer.is_file():
+        raise SystemExit(f"TTS bundle is incomplete: {destination}")
 
     attribution = destination / "README.md"
     attribution.write_text(
-        "# Bundled Piper voices\n\n"
-        f"- `{model_name}` — voice `{voice}` from "
-        "https://huggingface.co/rhasspy/piper-voices.\n"
-        "- Check the voice's model card for its dataset license and attribution.\n"
-        "- The default `en_GB-alba-medium` voice is CC BY 4.0 "
-        "(dataset: https://datashare.ed.ac.uk/handle/10283/3270).\n"
-        "- `piper-tts` itself is GPL-3.0-or-later. See NOTICE.\n",
+        "# Bundled tiny-voca model\n\n"
+        f"- `{TINY_VOCA_ONNX}` and `phonemizer/` from "
+        f"https://huggingface.co/{repo_id}.\n"
+        "- tiny-voca code and weights: Apache-2.0.\n"
+        "- Phonemizer: dizione, Apache-2.0; the data includes CMUdict and "
+        "Wikipedia Homograph Data, whose license files are in `phonemizer/`.\n"
+        "- ONNX Runtime: MIT. See NOTICE.\n",
         encoding="utf-8",
     )
-    print(f"TTS: {target} ({target.stat().st_size / (1024 * 1024):,.0f} MB)")
-    return target
+    print(f"TTS: {destination} ({directory_size_mb(destination):,.0f} MB)")
+    return destination
 
 
 def main() -> int:
@@ -160,12 +170,17 @@ def main() -> int:
     parser.add_argument("--mt-model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--quantization", default=DEFAULT_QUANTIZATION)
     parser.add_argument("--whisper-repo", default=WHISPER_REPO)
-    parser.add_argument("--voice", default=DEFAULT_VOICE)
+    parser.add_argument("--tts-repo", default=TINY_VOCA_REPO)
+    parser.add_argument("--voice", default=DEFAULT_TINY_VOCA_VOICE, choices=TINY_VOCA_VOICES)
     parser.add_argument("--force", action="store_true", help="re-copy/re-download everything")
     args = parser.parse_args()
 
     output: Path = args.output
     output.mkdir(parents=True, exist_ok=True)
+    # Older bundles shipped per-voice Piper files; tiny-voca uses one model.
+    legacy_voices = output / "voices"
+    if legacy_voices.exists():
+        shutil.rmtree(legacy_voices)
 
     mt_source = args.mt_source
     if mt_source is None:
@@ -181,7 +196,7 @@ def main() -> int:
         force=args.force,
     )
     asr_path = bundle_asr(output, repo_id=args.whisper_repo, force=args.force)
-    voice_path = bundle_voice(output, voice=args.voice, force=args.force)
+    tiny_voca_path = bundle_tiny_voca(output, repo_id=args.tts_repo, force=args.force)
 
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -198,11 +213,13 @@ def main() -> int:
             "license": "MIT",
         },
         "tts": {
-            "runtime": "piper-tts",
-            "runtime_license": "GPL-3.0-or-later",
-            "voice": args.voice,
-            "path": str(voice_path.relative_to(output)),
-            "voice_license": "CC BY 4.0 (en_GB-alba-medium; check other voices)",
+            "runtime": "tiny-voca + dizione + ONNX Runtime",
+            "runtime_license": "Apache-2.0 / Apache-2.0 / MIT",
+            "default_voice": args.voice,
+            "voices": list(TINY_VOCA_VOICES),
+            "path": str(tiny_voca_path.relative_to(output)),
+            "model_license": "Apache-2.0",
+            "source_model": args.tts_repo,
         },
     }
     (output / "manifest.json").write_text(

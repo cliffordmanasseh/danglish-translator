@@ -44,8 +44,8 @@ diarization, document-level context, and cloud-scale throughput. Parallel turn p
 └──────┬───────┘
        │  one or more English sentences
        ▼
-┌──────────────┐  Piper voice, 22.05 kHz mono
-│ Piper TTS    │  one synthesis per sentence
+┌──────────────┐  tiny-voca ONNX, 24 kHz mono
+│ tiny-voca    │  one synthesis per sentence
 └──────┬───────┘
        │  float32 waveform
        ▼
@@ -65,9 +65,9 @@ configuration and can fail or produce silence. The runtime therefore:
   interface;
 - opens capture at the device's native rate and resamples each 30 ms block to 16 kHz for
   the VAD and Whisper;
-- opens output at the device's native rate, resamples Piper's 22.05 kHz audio, and writes
-  through an explicit `OutputStream` rather than `sd.play()` (which can hang on
-  multi-channel PulseAudio sinks);
+- opens output at the device's native rate, resamples tiny-voca's 24 kHz audio (or Piper's
+  22.05 kHz fallback), and writes through an explicit `OutputStream` rather than
+  `sd.play()` (which can hang on multi-channel PulseAudio sinks);
 - selects the input channel and output channel explicitly (`--input-channel`,
   `--output-channel`), opening enough channels for the requested index.
 
@@ -191,9 +191,9 @@ Measured on the development machine:
 
 - text pipeline: **147 MB** peak;
 - text + FastAPI server: **185 MB** peak;
-- speech stack (Danish ASR small + MT + Piper): **~1.0 GB** peak, around 900 MB RSS after
-  several turns. Full-duplex keeps the same models and bounded queues, so its footprint
-  is unchanged; only CPU contention changes.
+- speech stack (Danish ASR small + MT + tiny-voca): **~1.0 GB** peak, around 900 MB RSS
+  after several turns. Full-duplex keeps the same models and bounded queues, so its
+  footprint is unchanged; only CPU contention changes.
 
 The speech peak includes CTranslate2's temporary allocation while quantizing the Whisper
 weights on load (~730 MB), growing to ~1,024 MB as ASR/TTS buffers are exercised. The
@@ -233,6 +233,7 @@ Face cache. There is no telemetry.
   or audio devices are required.
 - Segmentation tests cover Danish abbreviations, numbers, quotes, and incremental input.
 - Integration tests are marked `integration` and require a converted MT model; the TTS
-  integration test also needs Piper and a downloaded voice.
+  integration test downloads the tiny-voca model, and the optional Piper test is skipped
+  unless `piper-tts` is installed.
 - `scripts/speech_smoke.py` exercises the same `SpeechTranslator` used by `talk` on a WAV
   file, which is useful for testing a new machine without a microphone.

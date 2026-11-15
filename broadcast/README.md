@@ -15,7 +15,7 @@ contains the original binary, launcher, QR posters, and test suite. The copy in
 Danish microphone
   → Whisper ASR
   → translation (OPUS-MT / EuroLLM)
-  → Piper English TTS
+  → tiny-voca English TTS
   → Pulse null sink "danglish_broadcast"
   → ffmpeg (Opus RTP)
   → Go broadcast server
@@ -72,7 +72,7 @@ backend without a CLI flag.
 
 - `pactl` (PipeWire/PulseAudio compatibility) and `ffmpeg`
 - `sounddevice` / PortAudio (speech extras)
-- `piper` for English TTS
+- `onnxruntime` + `dizione` for the tiny-voca English TTS
 - Go only if you want to rebuild `church-audio-server`; the prebuilt binary is
   included
 

@@ -167,7 +167,9 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
         "fastapi": "web UI",
         "uvicorn": "web UI",
         "faster_whisper": "speech input",
-        "piper": "speech output",
+        "onnxruntime": "speech output",
+        "dizione": "speech output",
+        "piper": "Piper fallback",
         "sounddevice": "audio I/O",
     }
     installed = [label for module, label in optional.items() if _has_module(module)]
@@ -179,7 +181,7 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
         )
     )
 
-    if _has_module("faster_whisper") and _has_module("piper"):
+    if _has_module("faster_whisper") and _has_module("onnxruntime") and _has_module("dizione"):
         if config.model.backend == "llama":
             checks.append(
                 Check(
@@ -194,7 +196,8 @@ def build_checks(config: AppConfig, *, mock: bool = False) -> list[Check]:
                 Check(
                     "Speech stack",
                     "ok",
-                    "ASR small + translation + TTS measured at ~1.0 GB peak; fits the 2 GB budget",
+                    "ASR small + translation + tiny-voca measured at ~1.0 GB peak; "
+                    "fits the 2 GB budget",
                 )
             )
     else:

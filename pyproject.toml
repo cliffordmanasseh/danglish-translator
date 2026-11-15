@@ -22,7 +22,7 @@ keywords = [
   "ctranslate2",
   "opus-mt",
   "whisper",
-  "piper",
+  "tiny-voca",
   "offline",
   "local-first",
 ]
@@ -56,14 +56,20 @@ asr = [
   "faster-whisper>=1.0",
   "sounddevice>=0.4.6",
 ]
-# Optional speech output. piper-tts is GPL-3.0-or-later; see NOTICE.
+# Optional speech output. tiny-voca + dizione are Apache-2.0.
 tts = [
+  "dizione @ git+https://github.com/n4ze3m/dizione@8cd889e4de7be6bd1dd2e6891344a0729fa14dd4",
+  "onnxruntime>=1.17",
+]
+# Legacy Piper fallback; GPL-3.0-or-later, see NOTICE.
+tts-piper = [
   "piper-tts>=1.5,<2",
 ]
 speech = [
   "faster-whisper>=1.0",
-  "piper-tts>=1.5,<2",
   "sounddevice>=0.4.6",
+  "dizione @ git+https://github.com/n4ze3m/dizione@8cd889e4de7be6bd1dd2e6891344a0729fa14dd4",
+  "onnxruntime>=1.17",
 ]
 convert = [
   "torch>=2.2",
@@ -86,6 +92,9 @@ danglish = "danglish.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/danglish"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

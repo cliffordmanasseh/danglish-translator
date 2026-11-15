@@ -14,7 +14,8 @@ def test_defaults_are_valid() -> None:
     assert config.model.compute_type == "int8"
     assert config.model.beam_size == 2
     assert config.server.port == 8765
-    assert config.tts.voice == "en_GB-alba-medium"
+    assert config.tts.backend == "auto"
+    assert config.tts.voice == "M2"
 
 
 def test_load_toml(tmp_path: Path) -> None:
@@ -36,6 +37,7 @@ host = "0.0.0.0"
 port = 9000
 
 [tts]
+backend = "piper"
 voice = "en_GB-cori-high"
 """,
         encoding="utf-8",
@@ -51,7 +53,15 @@ voice = "en_GB-cori-high"
     assert config.stream.partial_debounce_ms == 50
     assert config.server.host == "0.0.0.0"
     assert config.server.port == 9000
+    assert config.tts.backend == "piper"
     assert config.tts.voice == "en_GB-cori-high"
+
+
+def test_tts_invalid_backend() -> None:
+    config = AppConfig()
+    config.tts.backend = "espeak"
+    with pytest.raises(ConfigError, match="tts.backend"):
+        config.validate()
 
 
 def test_unknown_section_is_rejected(tmp_path: Path) -> None:

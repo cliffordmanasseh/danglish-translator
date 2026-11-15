@@ -10,7 +10,8 @@ costs, not to promise a specific laptop's performance.
 - CTranslate2 4.9.0
 - OPUS-MT da→en converted to int8, beam size 2
 - faster-whisper 1.2.1, `lucasw89/whisper-small-danish-ct2-int8`, int8, 4 threads
-- piper-tts 1.8.0, `en_GB-alba-medium`, ONNX Runtime
+- tiny-voca M2, ONNX Runtime + dizione, 2 threads
+- optional Piper 1.8.0 `en_GB-alba-medium` fallback
 - RSS measured with `danglish bench` / `scripts/speech_smoke.py` (process resident set)
 
 ## Text translation
@@ -135,12 +136,12 @@ Model load after a warm cache, measured in a fresh process:
 
 ```text
 ASR load   0.38 s   RSS 359 MB
-TTS load   1.80 s   RSS 485 MB
-TTS warmup 0.04 s
+TTS load   1.02 s   RSS 163 MB
+TTS warmup 0.14 s
 ```
 
-The first run additionally downloads ~238 MB (pre-quantized ASR), ~60 MB (voice), and ~77 MB (MT), and
-performs a one-time CT2 conversion with torch.
+The first run additionally downloads ~238 MB (pre-quantized ASR), ~26 MB (tiny-voca
+ONNX + phonemizer), and ~77 MB (MT), and performs a one-time CT2 conversion with torch.
 
 ## Caveats
 

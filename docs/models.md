@@ -82,34 +82,51 @@ Alternatives:
 - Vosk has small Danish models, but their accuracy and timestamp behavior differ; an
   adapter would be a new backend.
 
-## Speech synthesis — Piper
+## Speech synthesis — tiny-voca
+
+| | |
+|---|---|
+| Source | [`n4ze3m/tiny-voca`](https://huggingface.co/n4ze3m/tiny-voca) |
+| Architecture | 4.5M-parameter encoder, duration/prosody predictor, source-filter waveform head |
+| Runtime | ONNX Runtime, CPU; [`dizione`](https://github.com/n4ze3m/dizione) phonemizer |
+| Disk | 21 MB ONNX + 5 MB phonemizer data |
+| Sample rate | 24,000 Hz mono |
+| Speed | ~70–85× real time on 2–4 CPU threads |
+| Voices | `F2` and `M2`, American English; `M2` is the default |
+| License | Apache-2.0 (code and weights); CMUdict/homograph data licenses in the model repo |
+
+The ONNX graph and phonemizer are downloaded from
+[`n4ze3m/tiny-voca`](https://huggingface.co/n4ze3m/tiny-voca) on first use and cached by
+Hugging Face. The Apache-2.0 model is trained from scratch on synthetic speech; it is
+clear but can sound slightly synthetic, and the F2 voice sounds younger than intended.
+It is English-only, has two fixed voices, and no streaming. Unusual names and spellings
+are its main weakness.
+
+In an informal 10-sentence sermon check, the M2 voice had no word errors when transcribed
+by Whisper small; F2 read “Grace” as “Race” once. That is an intelligibility sanity check,
+not a listening test.
+
+### Piper fallback
+
+Piper remains available for comparison and for British English voices:
 
 | | |
 |---|---|
 | Runtime | [`piper-tts`](https://github.com/OHF-Voice/piper1-gpl) + ONNX Runtime |
-| Runtime license | GPL-3.0-or-later (optional dependency) |
-| Default voice | `en_GB-alba-medium` |
-| Disk | 63 MB |
+| Runtime license | GPL-3.0-or-later (optional `tts-piper` extra) |
+| Voice | `en_GB-alba-medium`, 63 MB, CC BY 4.0 |
 | Sample rate | 22,050 Hz mono |
 | Speed | ~20–30× real time on the test machine |
-| Voice license | CC BY 4.0 (dataset: DataShare Edinburgh) |
 
-The voice is downloaded from [`rhasspy/piper-voices`](https://huggingface.co/rhasspy/piper-voices)
-on first use and cached by Hugging Face. The voice is not bundled in this repository.
+Install it with `uv sync --extra tts-piper`, then run
+`danglish talk --tts-backend piper --tts-voice en_GB-alba-medium`. The optional
+`en_GB-cori-high` voice is 114 MB and public domain. Other Piper voices have their own
+licenses; some use research/non-commercial data terms, so do not assume a voice is
+redistributable just because Piper can load it. A local voice can also be passed as a
+path to an `.onnx` file with a sibling `.onnx.json`.
 
-Recommended permissively licensed choices:
-
-- `en_GB-alba-medium` — 63 MB, CC BY 4.0, British English, single speaker (default).
-- `en_GB-cori-high` — 114 MB, public domain, higher quality.
-
-Other Piper voices have their own licenses. Some, such as Lessac and Ryan, use
-research/non-commercial dataset terms; do not assume a voice is redistributable just
-because Piper can load it. Use `--tts-voice` or set `tts.voice` in the config. A local
-voice can also be passed as a path to an `.onnx` file with a sibling `.onnx.json`.
-
-`piper-tts` itself is GPL-3.0-or-later and is an optional dependency. The Apache-2.0
-core does not require it; see [`../NOTICE`](../NOTICE) if you redistribute a combined
-environment. A permissively licensed TTS backend would be a welcome contribution.
+`piper-tts` is GPL-3.0-or-later and is not part of the default Apache-2.0 speech stack.
+See [`../NOTICE`](../NOTICE) if you redistribute a combined environment.
 
 ## Attribution and redistribution
 
@@ -118,7 +135,9 @@ Danglish code is Apache-2.0. Models and voices are separate works:
 - keep the OPUS-MT model card and Apache-2.0 notice if you redistribute the converted
   model;
 - Whisper and faster-whisper are MIT;
-- the default Piper voice is CC BY 4.0 and requires attribution if redistributed.
+- tiny-voca code and weights are Apache-2.0; its phonemizer data carries CMUdict and
+  Wikipedia Homograph Data licenses, copied next to the downloaded data;
+- the optional Piper voice is CC BY 4.0 and the Piper runtime is GPL-3.0-or-later.
 
 See [`../NOTICE`](../NOTICE) for the summary. If you change the default voice, update the
 notice and check the new voice's license.

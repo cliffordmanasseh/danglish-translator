@@ -22,7 +22,10 @@ host = "127.0.0.1"
 port = 8765
 
 [tts]
-# Piper voice used by `danglish talk` and downloaded on first use.
-# en_GB-alba-medium: 63 MB, CC BY 4.0.
-# en_GB-cori-high: 114 MB, public domain.
-voice = "en_GB-alba-medium"
+# tiny-voca English voice used by `danglish talk`.
+# M2: male, F2: female. Both are 21 MB and Apache-2.0.
+voice = "M2"
+backend = "auto"       # tiny-voca; use "piper" for the optional legacy voice
+# Piper fallback requires `uv sync --extra tts-piper`:
+# backend = "piper"
+# voice = "en_GB-alba-medium"

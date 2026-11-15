@@ -6,7 +6,7 @@ the UI; a bundled Python sidecar owns the models and audio devices.
 ```text
 Electron main process
   ├─ renderer (HTML/CSS/JS)          captions, controls, settings
-  └─ Python sidecar (PyInstaller)    ASR → OPUS-MT → Piper → audio
+  └─ Python sidecar (PyInstaller)    ASR → OPUS-MT → tiny-voca → audio
        └─ bundled models             resources/models
 ```
 
@@ -33,10 +33,10 @@ Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The last 100 caption turns are kept in the app's local storage until you press
-**Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the Piper voice are downloaded on
+**Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the tiny-voca voice are downloaded on
 first use; the MT model must already exist from `danglish fetch`.
 
-If you already built the model bundle (~375 MB), the dev app uses it automatically:
+If you already built the model bundle (~341 MB), the dev app uses it automatically:
 
 ```text
 desktop/resources/models/
@@ -44,8 +44,8 @@ desktop/resources/models/
 
 Model files are platform-independent. To test on a Windows or macOS machine without
 downloading anything, copy that directory from the Linux build into the same location on
-the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~375 MB:
-77 MB MT, 238 MB Danish ASR, 60 MB voice.
+the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~341 MB:
+77 MB MT, 238 MB Danish ASR, 26 MB tiny-voca.
 
 ## Build a distributable
 
@@ -57,17 +57,17 @@ npm run dist
 That script:
 
 1. builds the Python sidecar with PyInstaller into `resources/backend/`;
-2. copies/downloads models into `resources/models/` (~375 MB);
+2. copies/downloads models into `resources/models/` (~341 MB);
 3. runs electron-builder for the current platform into `release/`.
 
 The app resources look like:
 
 ```text
 resources/
-  backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, Piper, onnxruntime
+  backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, onnxruntime
   models/opus-mt-da-en-int8/     translation model
   models/whisper-small-danish/   Danish fine-tuned ASR model
-  models/voices/                 Piper voice
+  models/tiny-voca/              ONNX voice + dizione phonemizer
   legal/LICENSE
   legal/NOTICE
 ```
@@ -134,7 +134,7 @@ headroom for the OS. The CLI (`danglish talk`) remains the low-memory option.
 
 ## Licensing
 
-The desktop code is Apache-2.0. The bundled `piper-tts` runtime is GPL-3.0-or-later, and
-the default English voice is CC BY 4.0. The app ships `LICENSE` and `NOTICE` under
-`resources/legal` and exposes them from the Licenses button. If you distribute a built app,
-comply with the GPL and voice attribution requirements.
+The desktop code is Apache-2.0. The bundled tiny-voca model, dizione, and ONNX Runtime
+are Apache-2.0/MIT; the optional Piper fallback is not bundled. The app ships `LICENSE`
+and `NOTICE` under `resources/legal` and exposes them from the Licenses button. If you
+distribute a built app, retain the model and phonemizer attributions in `NOTICE`.

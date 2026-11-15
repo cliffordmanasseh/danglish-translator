@@ -20,6 +20,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Replaced the default Piper English voice with tiny-voca M2: 21 MB ONNX +
+  5 MB Apache-2.0 phonemizer, ~70–85× real time, and ~169 MB RSS instead of
+  ~248 MB. Piper remains available as the optional `tts-piper` fallback
+  (`--tts-backend piper`).
 - Low-latency chunking: cut after 300 ms of silence or 4 s of continuous speech (was
   600 ms / 15 s), so English audio starts within roughly two seconds of each chunk instead
   of waiting for a long monologue to end.

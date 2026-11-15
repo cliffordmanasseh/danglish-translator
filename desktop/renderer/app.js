@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS = {
   maxSegmentS: 4.0,
   minEnergy: 0.006,
   asrModel: DEFAULT_ASR_MODEL,
-  voice: "en_GB-alba-medium",
+  voice: "M2",
 };
 
 const FALLBACK_CONTEXTS = [
@@ -29,8 +29,8 @@ const FALLBACK_CONTEXTS = [
 ];
 
 const VOICE_LABELS = {
-  "en_GB-alba-medium": "Alba — UK English (CC BY)",
-  "en_GB-cori-high": "Cori — UK English (public domain)",
+  M2: "M2 — US English (male)",
+  F2: "F2 — US English (female)",
 };
 
 const state = {
@@ -38,7 +38,7 @@ const state = {
   contexts: FALLBACK_CONTEXTS.slice(),
   devices: [],
   deviceDefaults: { input: null, output: null },
-  appInfo: { packaged: false, voices: ["en_GB-alba-medium"] },
+  appInfo: { packaged: false, voices: ["M2", "F2"] },
   status: "idle",
   running: false,
   busy: false,
@@ -246,7 +246,7 @@ function populateVoices() {
   const voices =
     state.appInfo.voices && state.appInfo.voices.length
       ? state.appInfo.voices
-      : ["en_GB-alba-medium"];
+      : ["M2", "F2"];
   els.voice.replaceChildren();
   for (const voice of voices) {
     const option = document.createElement("option");
@@ -352,7 +352,7 @@ async function loadAppInfo() {
     populateVoices();
     populateAsrOptions();
     if (state.appInfo.packaged) {
-      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · Piper";
+      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · tiny-voca";
     }
   } catch (error) {
     els.modelInfo.textContent = "Backend offline";

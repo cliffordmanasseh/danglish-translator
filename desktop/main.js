@@ -80,20 +80,7 @@ function modelPaths(settings) {
       : legacyAsr
     : null;
 
-  let voice = null;
-  if (useBundled) {
-    const voiceName = String(settings.voice || "en_GB-alba-medium").replace(/\.onnx$/, "");
-    voice = path.join(bundled, "voices", `${voiceName}.onnx`);
-    if (!fs.existsSync(voice)) {
-      const voicesDir = path.join(bundled, "voices");
-      const available = fs.existsSync(voicesDir)
-        ? fs.readdirSync(voicesDir).find((name) => name.endsWith(".onnx"))
-        : null;
-      if (available) voice = path.join(voicesDir, available);
-    }
-  }
-
-  return { bundled, useBundled, mt, asr, voice };
+  return { bundled, useBundled, mt, asr, tinyVoca: path.join(bundled, "tiny-voca") };
 }
 
 function buildBackendArgs(settings) {
@@ -105,8 +92,8 @@ function buildBackendArgs(settings) {
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
   if (settings.ttsEnabled !== false) {
-    if (models.voice) args.push("--tts-voice", models.voice);
-    else args.push("--tts-voice", settings.voice || "en_GB-alba-medium");
+    args.push("--tts-backend", settings.ttsBackend || "tiny-voca");
+    args.push("--tts-voice", settings.voice || "M2");
   } else {
     args.push("--no-tts");
   }
@@ -247,6 +234,10 @@ function startBackend(settings) {
     }
 
     const args = [...prefix, ...buildBackendArgs(settings)];
+    const models = modelPaths(settings);
+    const tinyVocaDir = fs.existsSync(path.join(models.tinyVoca, "onnx", "model.onnx"))
+      ? models.tinyVoca
+      : null;
     sendLog("app", `$ ${command} ${args.join(" ")}`);
     sendStatus("starting", "Starting…");
 
@@ -256,6 +247,7 @@ function startBackend(settings) {
         cwd: app.isPackaged ? process.resourcesPath : repoRoot,
         env: {
           ...process.env,
+          ...(tinyVocaDir ? { DANGLISH_TINY_VOCA_DIR: tinyVocaDir } : {}),
           PYTHONUNBUFFERED: "1",
           PYTHONIOENCODING: "utf-8",
           PYTHONUTF8: "1",
@@ -393,18 +385,8 @@ function legalPath() {
 }
 
 function bundledVoiceNames() {
-  const directory = path.join(modelsRoot(), "voices");
-  try {
-    const voices = fs
-      .readdirSync(directory)
-      .filter((name) => name.endsWith(".onnx"))
-      .map((name) => name.slice(0, -".onnx".length));
-    if (voices.length) return voices;
-  } catch (_) {
-    /* fall through */
-  }
-  if (!app.isPackaged) return ["en_GB-alba-medium", "en_GB-cori-high"];
-  return [];
+  // Both voices ship in the same tiny-voca model; no per-voice files.
+  return ["M2", "F2"];
 }
 
 function createWindow() {

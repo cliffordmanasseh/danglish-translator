@@ -817,17 +817,26 @@ server = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 speech = [
+    { name = "dizione" },
     { name = "faster-whisper" },
-    { name = "piper-tts" },
+    { name = "onnxruntime", version = "1.24.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "onnxruntime", version = "1.31.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "sounddevice" },
 ]
 tts = [
+    { name = "dizione" },
+    { name = "onnxruntime", version = "1.24.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "onnxruntime", version = "1.31.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+tts-piper = [
     { name = "piper-tts" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "ctranslate2", specifier = ">=4.5,<5" },
+    { name = "dizione", marker = "extra == 'speech'", git = "https://github.com/n4ze3m/dizione?rev=8cd889e4de7be6bd1dd2e6891344a0729fa14dd4" },
+    { name = "dizione", marker = "extra == 'tts'", git = "https://github.com/n4ze3m/dizione?rev=8cd889e4de7be6bd1dd2e6891344a0729fa14dd4" },
     { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.110" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.110" },
     { name = "faster-whisper", marker = "extra == 'asr'", specifier = ">=1.0" },
@@ -835,8 +844,9 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "huggingface-hub", specifier = ">=0.24" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "piper-tts", marker = "extra == 'speech'", specifier = ">=1.5,<2" },
-    { name = "piper-tts", marker = "extra == 'tts'", specifier = ">=1.5,<2" },
+    { name = "onnxruntime", marker = "extra == 'speech'", specifier = ">=1.17" },
+    { name = "onnxruntime", marker = "extra == 'tts'", specifier = ">=1.17" },
+    { name = "piper-tts", marker = "extra == 'tts-piper'", specifier = ">=1.5,<2" },
     { name = "pyinstaller", marker = "extra == 'build'", specifier = ">=6.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5" },
@@ -850,7 +860,17 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.29" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.29" },
 ]
-provides-extras = ["server", "asr", "tts", "speech", "convert", "dev", "build"]
+provides-extras = ["server", "asr", "tts", "tts-piper", "speech", "convert", "dev", "build"]
+
+[[package]]
+name = "dizione"
+version = "0.1.0"
+source = { git = "https://github.com/n4ze3m/dizione?rev=8cd889e4de7be6bd1dd2e6891344a0729fa14dd4#8cd889e4de7be6bd1dd2e6891344a0729fa14dd4" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
 
 [[package]]
 name = "exceptiongroup"

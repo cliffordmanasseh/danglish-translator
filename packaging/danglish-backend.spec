@@ -28,7 +28,7 @@ for package in (
     "ctranslate2",
     "sentencepiece",
     "faster_whisper",
-    "piper",
+    "dizione",
     "onnxruntime",
     "sounddevice",
     "av",

@@ -25,7 +25,14 @@ OpenAI Whisper "small"
   License: MIT
   https://github.com/openai/whisper
 
-Piper voice en_GB-alba-medium
+tiny-voca F2 / M2
+  English speech synthesis model from n4ze3m/tiny-voca
+  License: Apache-2.0 (code and weights)
+  Model: https://huggingface.co/n4ze3m/tiny-voca
+  Phonemizer: dizione, Apache-2.0; its data includes CMUdict and Wikipedia
+  Homograph Data, whose license files are distributed with the data.
+
+Piper voice en_GB-alba-medium (optional fallback)
   English speech synthesis voice from rhasspy/piper-voices
   License: CC BY 4.0
   Dataset: https://datashare.ed.ac.uk/handle/10283/3270
@@ -37,7 +44,8 @@ OPTIONAL RUNTIME AND PYTHON DEPENDENCIES
 CTranslate2                                  MIT
 SentencePiece                               Apache-2.0
 faster-whisper                              MIT
-piper-tts                                   GPL-3.0-or-later (optional)
+dizione                                     Apache-2.0
+piper-tts                                   GPL-3.0-or-later (optional tts-piper)
 ONNX Runtime                                MIT
 PyAV (av)                                   BSD-3-Clause
 sounddevice                                 MIT
@@ -71,16 +79,17 @@ HTTP MP3. See broadcast/README.md and broadcast/church/README.md.
 
 LICENSING NOTES
 ---------------
-piper-tts is an optional speech-output dependency and is licensed under the GNU
-General Public License v3.0 or later. The Apache-2.0 core (text translation, server,
-ASR, and the interfaces in this repository) does not require it. If you distribute a
-combined environment or binary that includes piper-tts, comply with the GPL terms for
-that component. Users who need a permissively licensed speech pipeline should replace
-the TTS stage or install the components separately after reviewing their obligations.
+tiny-voca and dizione are permissively licensed under Apache-2.0 and are the
+default speech-output stack. piper-tts is only an optional fallback, installed by
+the `tts-piper` extra, and is licensed under the GNU General Public License v3.0
+or later. The Apache-2.0 core (text translation, server, ASR, and the interfaces
+in this repository) does not require it. If you distribute a combined environment
+or binary that includes piper-tts, comply with the GPL terms for that component.
 
-The `speech` extra installs piper-tts. The `tts` extra installs only piper-tts; the
-`asr` extra installs faster-whisper and sounddevice. Model and voice licenses are
-independent of the Python package licenses.
+The `speech` extra installs the tiny-voca stack (dizione + ONNX Runtime). The
+`tts` extra installs only the tiny-voca stack; `tts-piper` installs the optional
+Piper fallback; the `asr` extra installs faster-whisper and sounddevice. Model and
+voice licenses are independent of the Python package licenses.
 
 This notice is informational and is not legal advice. Verify the licenses of any model,
 voice, or dependency you redistribute.

@@ -24,7 +24,7 @@ from danglish.backends import create_backend
 from danglish.config import load_config
 from danglish.memory import current_rss_mb, peak_rss_mb
 from danglish.speech import SpeechTranslator
-from danglish.tts import DEFAULT_VOICE, PiperTTS
+from danglish.tts import create_tts
 
 
 def main() -> int:
@@ -35,18 +35,19 @@ def main() -> int:
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL)
     parser.add_argument("--voice")
+    parser.add_argument("--tts-backend", choices=("auto", "tiny-voca", "piper"))
     args = parser.parse_args()
 
     audio, sample_rate = read_wav(args.input)
     config = load_config(args.config)
     if args.model_path is not None:
         config.model.path = args.model_path
-    voice = args.voice or config.tts.voice or DEFAULT_VOICE
+    voice = args.voice or config.tts.voice
 
     print("loading models ...", file=sys.stderr, flush=True)
     backend = create_backend(config)
     asr = WhisperASR(args.asr_model, compute_type="int8", cpu_threads=4)
-    tts = PiperTTS(voice)
+    tts = create_tts(voice=voice, backend=args.tts_backend or config.tts.backend)
     speech = SpeechTranslator(asr, backend, tts)
 
     started = time.perf_counter()

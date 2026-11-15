@@ -28,8 +28,8 @@ uv run --no-sync danglish talk
 uv run --no-sync danglish talk
 ```
 
-The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), a Piper English
-voice (~60 MB), and the OPUS-MT source model; the converted runtime model is ~77 MB. The one-time conversion
+The first run downloads the Danish Whisper small int8 fine-tune (~238 MB), a tiny-voca
+English voice (~26 MB), and the OPUS-MT source model; the converted runtime model is ~77 MB. The one-time conversion
 also installs torch and keeps the original model in the Hugging Face cache, so budget
 roughly 1.5 GB of disk for setup. After that, model loading takes a few seconds. Use
 headphones: the microphone is muted while English audio plays, which avoids a feedback
@@ -138,7 +138,7 @@ directory is not modified.
      │
      ▼
 ┌───────────┐   ┌──────────────────┐   ┌────────────────────┐   ┌──────────────┐
-│ energy VAD│──▶│ Danish Whisper   │──▶│ OPUS-MT da→en      │──▶│ Piper TTS    │
+│ energy VAD│──▶│ Danish Whisper   │──▶│ OPUS-MT da→en      │──▶│ tiny-voca TTS│
 │ 16 kHz    │   │ small, int8 ASR  │   │ CT2 int8, streaming│   │ English voice│
 └───────────┘   └──────────────────┘   └────────────────────┘   └──────┬───────┘
                                                                       │
@@ -148,7 +148,7 @@ directory is not modified.
 
 The microphone path is segmented by a small energy VAD. It cuts after **300 ms of
 silence**, or after **4 seconds of continuous speech**, whichever comes first. Each chunk
-goes through local Whisper ASR, translation, and a local Piper voice, so audio starts
+goes through local Whisper ASR, translation, and a local tiny-voca voice, so audio starts
 within roughly two seconds of a chunk closing instead of waiting for a long monologue to
 end. English audio starts playing as soon as the turn is
 translated.
@@ -180,8 +180,10 @@ half-duplex audio model, and the memory strategy. Detailed measurements are in
 - **Helsinki-NLP/opus-mt-da-en** is a 77M-parameter Marian model, converted to
   CTranslate2 int8 (~77 MB). It is a strong small general-purpose baseline, not a
   state-of-the-art translator.
-- **Piper en_GB-alba-medium** is a 63 MB English voice that synthesizes at roughly 20×
-  real time on CPU and is licensed CC BY 4.0.
+- **tiny-voca M2** is a 4.5M-parameter, 21 MB ONNX English voice that synthesizes at
+  roughly 70–85× real time on CPU. The model and its 5 MB dizione phonemizer are
+  Apache-2.0. It is American English; `F2` is the other voice. It is trained from
+  scratch on synthetic speech, so it is clear but can sound slightly synthetic.
 
 ### Sermon translation models (optional)
 
@@ -263,7 +265,7 @@ CPU. Reproduce with `danglish bench` and `scripts/speech_smoke.py`.
 | Text + web server | ~77 MB | **185 MB** | FastAPI/uvicorn after model load |
 | Text, sermon OPUS int8 | 228 MB | **304 MB** | 199-sentence set, p50 ~143 ms |
 | Text, sermon Q5 backend | 1.2 GB | **1.29 GB** | 768 ctx, 1 slot, p50 ~270 ms |
-| Full speech-to-speech | ~375 MB | **~1.0 GB** | Danish ASR + MT + Piper, multi-turn |
+| Full speech-to-speech | ~340 MB | **~1.0 GB** | Danish ASR + MT + tiny-voca, multi-turn |
 | Hard budget | — | **2,048 MB** | target for the whole process |
 
 Full-duplex uses the same models and bounded audio queues; its memory footprint is
@@ -283,11 +285,11 @@ Measured turn latency for a 20-second Danish audio clip:
 |---|---:|---:|
 | Danish Whisper small ASR | 1.46 s | ~14× real time |
 | OPUS-MT translation | 0.15 s | — |
-| Piper speech synthesis | 0.38 s | ~30× real time |
-| **Total** | **~2.0 s** | for 20 s of input |
+| tiny-voca speech synthesis | 0.20 s | ~70× real time |
+| **Total** | **~1.8 s** | for 20 s of input |
 
 With the default 300 ms pause / 4 s maximum chunk, expect roughly **2 seconds from the end
-of a chunk to English audio**: ~1.5 s ASR + ~0.15 s MT + ~0.3 s Piper TTS. You can lower
+of a chunk to English audio**: ~1.5 s ASR + ~0.15 s MT + ~0.2 s tiny-voca TTS. You can lower
 `--max-segment-s` for even tighter sync, at some cost in translation context. The first run
 downloads models; subsequent process startups load them in a few seconds.
 
@@ -335,7 +337,9 @@ Model and performance options live in [`configs/default.toml`](configs/default.t
 Useful overrides:
 
 ```bash
-danglish talk --asr-model small --tts-voice en_GB-cori-high
+danglish talk --asr-model small --tts-voice F2
+# Piper fallback: install with `uv sync --extra tts-piper` first
+danglish talk --tts-backend piper --tts-voice en_GB-cori-high
 danglish talk --min-energy 0.008 --silence-ms 500
 danglish talk --sentence-level    # lower latency, less context
 danglish talk --input-device "Volt 4" --output-device "Volt 4"
@@ -471,7 +475,7 @@ src/danglish/
   pipeline.py          streaming translation events and document translation
   backends/            CTranslate2 backend + mock backend
   speech.py            ASR → MT → TTS orchestration (device-free, testable)
-  tts.py               Piper voice loading, download, and synthesis
+  tts.py               tiny-voca ONNX synthesis + Piper fallback
   audio/
     vad.py             energy VAD
     asr.py             faster-whisper wrapper
@@ -498,17 +502,19 @@ their own licenses:
 | Sermon edge translation (optional) | OPUS-MT tc-big sermon fine-tune (int8) | Base Apache-2.0; fine-tuned weights research-use-only (data rights) |
 | Sermon translation (optional) | EuroLLM-1.7B sermon LoRA (`Q5_K_M`) | Base Apache-2.0; fine-tuned weights research-use-only (data rights) |
 | ASR | `lucasw89/whisper-small-danish-ct2-int8` (Danish fine-tune of OpenAI Whisper small) | MIT |
-| TTS voice | Piper `en_GB-alba-medium` | CC BY 4.0 (voice dataset) |
-| TTS runtime | `piper-tts` (optional) | GPL-3.0-or-later |
+| TTS voice | tiny-voca `F2` / `M2` | Apache-2.0 |
+| TTS runtime | dizione + ONNX Runtime | Apache-2.0 / MIT |
+| TTS fallback (optional) | Piper `en_GB-alba-medium` | CC BY 4.0 voice, GPL-3.0 runtime |
 
 The optional sermon model and its data statement are documented in
 [`release/sermon-model/MODEL_CARD.md`](release/sermon-model/MODEL_CARD.md).
 
-The default Piper voice is downloaded at runtime, not bundled. `piper-tts` is an
-optional GPL dependency installed only by the `speech`/`tts` extras; the Apache-2.0 core
-does not require it. See [`NOTICE`](NOTICE) and [`docs/models.md`](docs/models.md) for
-attribution, licensing details, and alternatives. The TTS voice choice is configurable;
-if you switch voices, check that voice's license.
+The default tiny-voca model is downloaded at runtime (21 MB ONNX + 5 MB phonemizer), not
+bundled. The TTS stack is Apache-2.0; Piper remains an optional GPL fallback installed
+only by the `tts-piper` extra. See [`NOTICE`](NOTICE) and [`docs/models.md`](docs/models.md)
+for attribution, licensing details, and alternatives. The voice is configurable
+(`tts.voice = "F2"` or `"M2"`); Piper voices remain available through
+`tts.backend = "piper"`.
 
 ## Roadmap
 

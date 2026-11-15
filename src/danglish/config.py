@@ -89,9 +89,16 @@ class ServerConfig:
 
 @dataclass(slots=True)
 class TTSConfig:
-    voice: str = "en_GB-alba-medium"
+    backend: str = "auto"
+    voice: str = "M2"
 
     def validate(self) -> None:
+        from .tts import TTS_BACKENDS
+
+        if self.backend not in TTS_BACKENDS:
+            raise ConfigError(
+                f"tts.backend must be one of {', '.join(TTS_BACKENDS)}, not {self.backend!r}"
+            )
         if not self.voice.strip():
             raise ConfigError("tts.voice must not be empty")
 

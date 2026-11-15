@@ -430,6 +430,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
             asr_model=args.asr_model,
             asr_compute_type=args.asr_compute_type,
             tts_voice=args.tts_voice,
+            tts_backend=args.tts_backend,
             enable_tts=not args.no_tts,
             full_duplex=args.full_duplex,
             input_device=args.input_device,
@@ -796,7 +797,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     talk.add_argument(
         "--tts-voice",
-        help="Piper voice name or local .onnx path (default: from config, en_GB-alba-medium)",
+        help=(
+            "tiny-voca voice F2/M2, or a Piper voice name / local .onnx path "
+            "(default: from config, M2)"
+        ),
+    )
+    talk.add_argument(
+        "--tts-backend",
+        choices=("auto", "tiny-voca", "piper"),
+        help="speech engine (default: auto: tiny-voca unless a Piper voice is given)",
     )
     talk.add_argument(
         "--no-tts", action="store_true", help="print the English translation instead of speaking it"

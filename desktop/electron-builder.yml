@@ -47,5 +47,5 @@ linux:
     - AppImage
   category: AudioVideo
   synopsis: Local Danish to English speech-to-speech translator
-  description: Local, real-time Danish to English speech translation with Whisper, OPUS-MT, and Piper.
+  description: Local, real-time Danish to English speech translation with Whisper, OPUS-MT, and tiny-voca.
 artifactName: Danglish-${version}-${os}-${arch}.${ext}
