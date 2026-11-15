@@ -24,7 +24,14 @@ const args = [
   path.join(root, "desktop", "resources", "models"),
 ];
 const mtSource = path.join(root, "models", "opus-mt-da-en-int8");
-if (existsSync(mtSource)) args.push("--mt-source", mtSource);
+const sermonMt = path.join(
+  root,
+  "release",
+  "sermon-opus-model",
+  "opus-mt-tc-big-gmq-en-sermon-int8"
+);
+if (existsSync(sermonMt)) args.push("--mt-source", sermonMt);
+else if (existsSync(mtSource)) args.push("--mt-source", mtSource);
 if (process.env.DANGLISH_TTS_VOICE) {
   args.push("--voice", process.env.DANGLISH_TTS_VOICE);
 }

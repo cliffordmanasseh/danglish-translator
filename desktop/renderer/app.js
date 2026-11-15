@@ -5,7 +5,6 @@ const HISTORY_KEY = "danglish.desktop.history.v1";
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
 const DEFAULT_SETTINGS = {
-  context: "general",
   fullDuplex: true,
   ttsEnabled: true,
   inputDevice: "",
@@ -20,15 +19,6 @@ const DEFAULT_SETTINGS = {
   broadcastEnabled: false,
 };
 
-const FALLBACK_CONTEXTS = [
-  { name: "general", label: "General", description: "Neutral everyday translation." },
-  {
-    name: "sermon",
-    label: "Church / sermon",
-    description: "Prefers congregation, sermon, pastor, and worship terminology.",
-  },
-];
-
 const VOICE_LABELS = {
   M2: "M2 — US English (male)",
   F2: "F2 — US English (female)",
@@ -36,7 +26,6 @@ const VOICE_LABELS = {
 
 const state = {
   settings: loadSettings(),
-  contexts: FALLBACK_CONTEXTS.slice(),
   devices: [],
   deviceDefaults: { input: null, output: null },
   appInfo: { packaged: false, voices: ["M2", "F2"] },
@@ -61,9 +50,6 @@ const els = {
   statusDetail: $("statusDetail"),
   talkBtn: $("talkBtn"),
   talkLabel: $("talkLabel"),
-  contextSelect: $("contextSelect"),
-  contextHint: $("contextHint"),
-  contextBadge: $("contextBadge"),
   fullDuplex: $("fullDuplex"),
   ttsEnabled: $("ttsEnabled"),
   broadcastEnabled: $("broadcastEnabled"),
@@ -219,15 +205,6 @@ function removeLiveHint() {
   $("liveHint")?.remove();
 }
 
-function updateContextUi() {
-  const profile =
-    state.contexts.find((item) => item.name === state.settings.context) ||
-    state.contexts[0] ||
-    FALLBACK_CONTEXTS[0];
-  els.contextBadge.textContent = profile.label || profile.name;
-  els.contextHint.textContent = profile.description || "";
-}
-
 function updateDuplexUi() {
   els.duplexNote.textContent = state.settings.fullDuplex
     ? "Full-duplex is on — use headphones or isolated audio I/O. Turn it off for laptop speakers."
@@ -246,21 +223,6 @@ function updateBroadcastUi() {
     els.broadcastQr.href = qr;
     els.broadcastQr.title = qr;
   }
-}
-
-function populateContexts() {
-  els.contextSelect.replaceChildren();
-  for (const context of state.contexts) {
-    const option = document.createElement("option");
-    option.value = context.name;
-    option.textContent = context.label;
-    els.contextSelect.appendChild(option);
-  }
-  if (!state.contexts.some((item) => item.name === state.settings.context)) {
-    state.settings.context = state.contexts[0]?.name || "general";
-  }
-  els.contextSelect.value = state.settings.context;
-  updateContextUi();
 }
 
 function populateVoices() {
@@ -373,21 +335,11 @@ async function loadAppInfo() {
     populateVoices();
     populateAsrOptions();
     if (state.appInfo.packaged) {
-      els.modelInfo.textContent = "Bundled models · Danish Whisper · OPUS-MT · tiny-voca";
+      els.modelInfo.textContent = "Bundled models · Danish Whisper · sermon OPUS-MT · tiny-voca";
     }
   } catch (error) {
     els.modelInfo.textContent = "Backend offline";
   }
-}
-
-async function loadContexts() {
-  try {
-    const contexts = await window.danglish.listContexts();
-    if (Array.isArray(contexts) && contexts.length) state.contexts = contexts;
-  } catch (_) {
-    state.contexts = FALLBACK_CONTEXTS.slice();
-  }
-  populateContexts();
 }
 
 async function loadDevices(showError = false) {
@@ -407,12 +359,10 @@ async function loadDevices(showError = false) {
 }
 
 function setSettingsFromControls() {
-  state.settings.context = els.contextSelect.value;
   state.settings.fullDuplex = els.fullDuplex.checked;
   state.settings.ttsEnabled = els.ttsEnabled.checked;
   state.settings.broadcastEnabled = els.broadcastEnabled.checked;
   saveSettings();
-  updateContextUi();
   updateDuplexUi();
 }
 
@@ -655,10 +605,6 @@ function bindEvents() {
     if (!hidden) els.logs.scrollTop = els.logs.scrollHeight;
   });
 
-  els.contextSelect.addEventListener("change", () => {
-    setSettingsFromControls();
-    if (state.running) showToast("Context changed. Restart listening to apply it.");
-  });
   els.fullDuplex.addEventListener("change", () => {
     setSettingsFromControls();
     if (state.running) showToast("Full-duplex changed. Restart listening to apply it.");
@@ -726,8 +672,6 @@ async function bootstrap() {
   els.fullDuplex.checked = state.settings.fullDuplex !== false;
   els.ttsEnabled.checked = state.settings.ttsEnabled !== false;
   els.broadcastEnabled.checked = state.settings.broadcastEnabled === true;
-  els.contextSelect.value = state.settings.context;
-  updateContextUi();
   updateDuplexUi();
   updateBroadcastUi();
 
@@ -738,7 +682,6 @@ async function bootstrap() {
   }
 
   await loadAppInfo();
-  await loadContexts();
   await loadDevices();
   setStatus("idle");
 }

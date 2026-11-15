@@ -34,6 +34,8 @@ from danglish.tts import (
 )
 
 WHISPER_REPO = "lucasw89/whisper-small-danish-ct2-int8"
+SERMON_MT_SOURCE = Path("release/sermon-opus-model/opus-mt-tc-big-gmq-en-sermon-int8")
+SERMON_MT_DESTINATION = "sermon-opus-mt-int8"
 WHISPER_FILES = [
     "config.json",
     "model.bin",
@@ -57,14 +59,17 @@ def bundle_mt(
     source_dir: Path | None,
     model_id: str,
     quantization: str,
+    destination_name: str,
     force: bool,
 ) -> Path:
-    destination = output / "opus-mt-da-en-int8"
+    destination = output / destination_name
     if model_is_ready(destination) and not force:
         print(f"MT: reusing {destination} ({directory_size_mb(destination):,.0f} MB)")
         return destination
 
-    if source_dir is not None and model_is_ready(source_dir):
+    if source_dir is not None:
+        if not model_is_ready(source_dir):
+            raise SystemExit(f"MT source is incomplete: {source_dir}")
         print(f"MT: copying {source_dir} ...")
         _copy_dir(source_dir, destination)
     else:
@@ -165,7 +170,10 @@ def main() -> int:
     parser.add_argument(
         "--mt-source",
         type=Path,
-        help="existing converted MT model to copy (default: try models/opus-mt-da-en-int8)",
+        help=(
+            "existing converted MT model to copy (default: the local sermon model, "
+            "then models/opus-mt-da-en-int8)"
+        ),
     )
     parser.add_argument("--mt-model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--quantization", default=DEFAULT_QUANTIZATION)
@@ -183,16 +191,33 @@ def main() -> int:
         shutil.rmtree(legacy_voices)
 
     mt_source = args.mt_source
+    is_sermon = False
     if mt_source is None:
-        candidate = Path("models/opus-mt-da-en-int8")
-        if candidate.is_dir():
-            mt_source = candidate
+        if SERMON_MT_SOURCE.is_dir():
+            mt_source = SERMON_MT_SOURCE
+            is_sermon = True
+        else:
+            candidate = Path("models/opus-mt-da-en-int8")
+            if candidate.is_dir():
+                mt_source = candidate
+    else:
+        is_sermon = "sermon" in str(mt_source).lower()
+
+    destination_name = SERMON_MT_DESTINATION if is_sermon else "opus-mt-da-en-int8"
+    translation_source = "Danglish sermon OPUS-MT tc-big int8" if is_sermon else args.mt_model_id
+    translation_license = (
+        "Base Apache-2.0; fine-tuned weights research-use-only" if is_sermon else "Apache-2.0"
+    )
+    legacy_mt = output / "opus-mt-da-en-int8"
+    if destination_name != legacy_mt.name and legacy_mt.exists():
+        shutil.rmtree(legacy_mt)
 
     mt_path = bundle_mt(
         output,
         source_dir=mt_source,
         model_id=args.mt_model_id,
         quantization=args.quantization,
+        destination_name=destination_name,
         force=args.force,
     )
     asr_path = bundle_asr(output, repo_id=args.whisper_repo, force=args.force)
@@ -204,8 +229,8 @@ def main() -> int:
         "total_mb": round(directory_size_mb(output), 1),
         "translation": {
             "path": str(mt_path.relative_to(output)),
-            "source_model": args.mt_model_id,
-            "license": "Apache-2.0",
+            "source_model": translation_source,
+            "license": translation_license,
         },
         "asr": {
             "path": str(asr_path.relative_to(output)),

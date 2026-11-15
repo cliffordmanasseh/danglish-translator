@@ -66,8 +66,9 @@ sudo apt install libportaudio2
 ![Danglish desktop app](docs/screenshot-desktop.png)
 
 The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
-start/stop control, live Danish/English captions, terminology profiles, full-duplex mode, and
-audio-device/channel settings. It bundles the Python sidecar and all three models.
+start/stop control, live Danish/English captions, fixed church terminology, full-duplex
+mode, and audio-device/channel settings. It bundles the Python sidecar and the sermon
+translation model, Danish ASR, and tiny-voca voice.
 
 For development:
 
@@ -87,13 +88,13 @@ cd desktop
 npm run dist
 ```
 
-This produces a Linux AppImage (~700 MB here), a Windows NSIS installer, or a macOS
+This produces a Linux AppImage (~760 MB here), a Windows NSIS installer, or a macOS
 DMG/zip, depending on the platform. PyInstaller cannot cross-compile the Python sidecar,
 so Windows and macOS installers must be built on those operating systems (or with the
 `Desktop builds` GitHub Actions workflow). The builds are unsigned by default; macOS will
 need right-click → Open until signing/notarization is added.
 
-The model files are platform-independent. Copy `desktop/resources/models/` (~375 MB) from
+The model files are platform-independent. Copy `desktop/resources/models/` (~492 MB) from
 this machine to a Windows/macOS checkout to test without re-downloading the models; the
 desktop app and the installer build both reuse that directory.
 

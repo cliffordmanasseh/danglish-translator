@@ -29,9 +29,10 @@ npm start
 - Windows: `..\.venv\Scripts\python.exe`
 
 Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
-`DANGLISH_MODEL=/path/to/converted-model` to override the bundled translation
-model (for example the sermon edge model in `release/sermon-opus-model/`). Set
 `DANGLISH_DEVTOOLS=1` to open Chromium DevTools on launch.
+
+The desktop app is fixed to the sermon OPUS-MT model and the church terminology
+profile; there is no model or terminology selector.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The sidebar **Broadcast to phones** toggle serves the English TTS over the same
@@ -41,7 +42,7 @@ The last 100 caption turns are kept in the app's local storage until you press
 **Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the tiny-voca voice are downloaded on
 first use; the MT model must already exist from `danglish fetch`.
 
-If you already built the model bundle (~341 MB), the dev app uses it automatically:
+If you already built the model bundle (~492 MB), the dev app uses it automatically:
 
 ```text
 desktop/resources/models/
@@ -49,8 +50,8 @@ desktop/resources/models/
 
 Model files are platform-independent. To test on a Windows or macOS machine without
 downloading anything, copy that directory from the Linux build into the same location on
-the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~341 MB:
-77 MB MT, 238 MB Danish ASR, 26 MB tiny-voca.
+the other machine. `npm start` and `npm run dist` both reuse it. The bundle is ~492 MB:
+228 MB sermon MT, 238 MB Danish ASR, 26 MB tiny-voca.
 
 ## Build a distributable
 
@@ -62,7 +63,7 @@ npm run dist
 That script:
 
 1. builds the Python sidecar with PyInstaller into `resources/backend/`;
-2. copies/downloads models into `resources/models/` (~341 MB);
+2. copies/downloads models into `resources/models/` (~492 MB);
 3. runs electron-builder for the current platform into `release/`.
 
 The app resources look like:
@@ -70,7 +71,7 @@ The app resources look like:
 ```text
 resources/
   backend/danglish-backend/      Python runtime, ctranslate2, faster-whisper, onnxruntime
-  models/opus-mt-da-en-int8/     translation model
+  models/sermon-opus-mt-int8/    sermon translation model
   models/whisper-small-danish/   Danish fine-tuned ASR model
   models/tiny-voca/              ONNX voice + dizione phonemizer
   legal/LICENSE

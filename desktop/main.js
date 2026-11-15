@@ -65,12 +65,16 @@ function modelsRoot() {
 
 function modelPaths(settings) {
   const bundled = modelsRoot();
-  const useBundled = fs.existsSync(path.join(bundled, "opus-mt-da-en-int8"));
+  const bundledSermon = path.join(bundled, "sermon-opus-mt-int8");
+  const bundledGeneral = path.join(bundled, "opus-mt-da-en-int8");
+  const useBundled = fs.existsSync(bundledSermon) || fs.existsSync(bundledGeneral);
   const devModels = path.join(repoRoot, "models");
 
-  const mt = useBundled
-    ? path.join(bundled, "opus-mt-da-en-int8")
-    : path.join(devModels, "opus-mt-da-en-int8");
+  const mt = fs.existsSync(bundledSermon)
+    ? bundledSermon
+    : fs.existsSync(bundledGeneral)
+      ? bundledGeneral
+      : path.join(devModels, "opus-mt-da-en-int8");
 
   const bundledAsr = path.join(bundled, "whisper-small-danish");
   const legacyAsr = path.join(bundled, "whisper-small");
@@ -87,8 +91,7 @@ function buildBackendArgs(settings) {
   const models = modelPaths(settings);
   const args = ["talk", "--json"];
 
-  if (process.env.DANGLISH_MODEL) args.push("--model-path", process.env.DANGLISH_MODEL);
-  else if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
+  if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
@@ -100,7 +103,7 @@ function buildBackendArgs(settings) {
   }
   if (settings.broadcastEnabled) args.push("--broadcast");
 
-  args.push("--context", settings.context || "general");
+  args.push("--context", "sermon");
 
   args.push(settings.fullDuplex === false ? "--half-duplex" : "--full-duplex");
   if (settings.inputDevice) args.push("--input-device", String(settings.inputDevice));
