@@ -87,7 +87,8 @@ function buildBackendArgs(settings) {
   const models = modelPaths(settings);
   const args = ["talk", "--json"];
 
-  if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
+  if (process.env.DANGLISH_MODEL) args.push("--model-path", process.env.DANGLISH_MODEL);
+  else if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 

@@ -29,6 +29,8 @@ npm start
 - Windows: `..\.venv\Scripts\python.exe`
 
 Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
+`DANGLISH_MODEL=/path/to/converted-model` to override the bundled translation
+model (for example the sermon edge model in `release/sermon-opus-model/`). Set
 `DANGLISH_DEVTOOLS=1` to open Chromium DevTools on launch.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
