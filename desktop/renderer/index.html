@@ -193,10 +193,10 @@
             <input id="minEnergy" type="number" min="0.0005" step="0.0005" />
           </label>
           <label>
-            <span>Speech model</span>
+            <span>Danish speech recognition</span>
             <select id="asrModel">
               <option value="lucasw89/whisper-small-danish-ct2-int8">
-                Danish small — recommended
+                Danish Whisper small — recommended
               </option>
               <option value="small">Stock Whisper small</option>
               <option value="base">Stock base — lower memory, lower accuracy</option>
@@ -204,15 +204,17 @@
             </select>
           </label>
           <label>
-            <span>English voice</span>
+            <span>English voice (tiny-voca)</span>
             <select id="voice"></select>
           </label>
         </div>
 
         <p class="dialog-note">
-          On Windows and macOS, the first microphone use triggers the system permission
-          prompt. For a UAD or other multi-channel interface, choose the input channel
-          carrying the microphone (input 1 is usually channel 0).
+          The translation model is fixed to the sermon OPUS-MT model; tiny-voca is the
+          English speech generator. On Windows and macOS, the first microphone use
+          triggers the system permission prompt. For a UAD or other multi-channel
+          interface, choose the input channel carrying the microphone (input 1 is usually
+          channel 0).
         </p>
 
         <div class="dialog-actions">
