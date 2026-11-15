@@ -66,8 +66,8 @@ sudo apt install libportaudio2
 ![Danglish desktop app](docs/screenshot-desktop.png)
 
 The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
-start/stop control, live Danish/English captions, fixed church terminology, full-duplex
-mode, and audio-device/channel settings. It bundles the Python sidecar and the sermon
+start/stop control, live Danish/English captions, fixed church terminology, always-on
+full-duplex, and audio-device/channel settings. It bundles the Python sidecar and the sermon
 translation model, Danish ASR, and tiny-voca voice.
 
 For development:
@@ -156,8 +156,8 @@ translated.
 
 Capture/VAD, ASR→MT→TTS, and playback run on separate threads. **Full-duplex is the
 default**: capture and translation continue while English audio plays, and new turns
-queue behind the audio currently playing. Use `--half-duplex` (or the desktop toggle) with
-laptop speakers to mute the mic during playback. The models are still used by a single translation worker, so
+queue behind the audio currently playing. Use `--half-duplex` with laptop speakers to mute
+the mic during playback. The models are still used by a single translation worker, so
 memory does not increase; on a very small CPU, concurrent work can add a little latency.
 
 The text path uses the same translation core and adds a debounced partial preview of the

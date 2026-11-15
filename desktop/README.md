@@ -36,7 +36,8 @@ profile; there is no model or terminology selector.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The sidebar **Broadcast to phones** toggle serves the English TTS over the same
-Wi-Fi and shows listener/QR links after startup; it requires **Speak English** to be on.
+Wi-Fi and shows listener/QR links after startup. The **Mute** button silences
+local and broadcast audio without stopping captions.
 Hotspot mode still uses the CLI: `danglish talk --broadcast-hotspot ...`.
 The last 100 caption turns are kept in the app's local storage until you press
 **Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the tiny-voca voice are downloaded on
@@ -115,7 +116,7 @@ names over indices — PortAudio indices can change when PipeWire nodes are reor
 the app, click **Audio & voice settings → Refresh devices** after plugging in an interface.
 
 For a UAD Volt 4, input 1 is normally channel 0 and input 2 is channel 1. Full-duplex is
-the default; turn it off in the sidebar for laptop speakers. Alternatively, run
+always on in the desktop app; use headphones or isolated audio I/O. Alternatively, run
 `danglish audio-check` in a terminal to see per-channel RMS levels and play a test tone.
 
 ## Troubleshooting

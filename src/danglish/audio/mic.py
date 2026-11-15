@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import sys
+import threading
 from typing import Any
 
 import numpy as np
@@ -178,10 +180,37 @@ def run_talk(
             min_energy=min_energy,
         )
 
+        muted = threading.Event()
+        if os.environ.get("DANGLISH_CONTROL_STDIN") == "1":
+
+            def control_loop() -> None:
+                stream = sys.stdin
+                if stream is None:
+                    return
+                for line in stream:
+                    command = line.strip().lower()
+                    if command == "mute":
+                        muted.set()
+                    elif command == "unmute":
+                        muted.clear()
+                    elif command == "toggle":
+                        if muted.is_set():
+                            muted.clear()
+                        else:
+                            muted.set()
+
+            threading.Thread(target=control_loop, name="danglish-control", daemon=True).start()
+
         def play(audio: np.ndarray, sample_rate: int) -> None:
+            if muted.is_set():
+                return
             if broadcast_session is not None:
                 try:
-                    broadcast_session.write(audio, sample_rate)
+                    broadcast_chunk = max(1, int(sample_rate * 0.1))
+                    for start in range(0, audio.size, broadcast_chunk):
+                        if muted.is_set():
+                            return
+                        broadcast_session.write(audio[start : start + broadcast_chunk], sample_rate)
                 except Exception as exc:
                     print(f"broadcast: {exc}", file=sys.stderr, flush=True)
             if output_stream is None or played_rate is None or played_channels is None:
@@ -193,7 +222,11 @@ def run_talk(
                 selected = channel_index(output_channel, played_channels)
                 data = np.zeros((resampled.size, played_channels), dtype=np.float32)
                 data[:, selected] = resampled
-            output_stream.write(data)
+            output_chunk = max(1, int(played_rate * 0.1))
+            for start in range(0, data.shape[0], output_chunk):
+                if muted.is_set():
+                    return
+                output_stream.write(data[start : start + output_chunk])
 
         def print_result(result: SpeechUtterance) -> None:
             if as_json:

@@ -5,8 +5,6 @@ const HISTORY_KEY = "danglish.desktop.history.v1";
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
 const DEFAULT_SETTINGS = {
-  fullDuplex: true,
-  ttsEnabled: true,
   inputDevice: "",
   outputDevice: "",
   inputChannel: 0,
@@ -32,6 +30,7 @@ const state = {
   status: "idle",
   running: false,
   busy: false,
+  muted: false,
   rss: "",
   inputInfo: "",
   outputInfo: "",
@@ -50,13 +49,12 @@ const els = {
   statusDetail: $("statusDetail"),
   talkBtn: $("talkBtn"),
   talkLabel: $("talkLabel"),
-  fullDuplex: $("fullDuplex"),
-  ttsEnabled: $("ttsEnabled"),
+  muteBtn: $("muteBtn"),
+  muteLabel: $("muteLabel"),
   broadcastEnabled: $("broadcastEnabled"),
   broadcastLinks: $("broadcastLinks"),
   broadcastUrl: $("broadcastUrl"),
   broadcastQr: $("broadcastQr"),
-  duplexNote: $("duplexNote"),
   settingsBtn: $("settingsBtn"),
   legalBtn: $("legalBtn"),
   clearBtn: $("clearBtn"),
@@ -187,6 +185,7 @@ function setStatus(kind, message = "") {
   } else if (kind === "idle" || kind === "error") {
     removeLiveHint();
   }
+  updateMuteUi();
 }
 
 function showLiveHint() {
@@ -205,10 +204,11 @@ function removeLiveHint() {
   $("liveHint")?.remove();
 }
 
-function updateDuplexUi() {
-  els.duplexNote.textContent = state.settings.fullDuplex
-    ? "Full-duplex is on — use headphones or isolated audio I/O. Turn it off for laptop speakers."
-    : "Half-duplex — the mic pauses while English audio plays.";
+function updateMuteUi() {
+  els.muteBtn.disabled = !state.running;
+  els.muteBtn.setAttribute("aria-pressed", state.muted ? "true" : "false");
+  els.muteBtn.classList.toggle("is-muted", state.muted);
+  els.muteLabel.textContent = state.muted ? "Unmute" : "Mute";
 }
 
 function updateBroadcastUi() {
@@ -359,11 +359,8 @@ async function loadDevices(showError = false) {
 }
 
 function setSettingsFromControls() {
-  state.settings.fullDuplex = els.fullDuplex.checked;
-  state.settings.ttsEnabled = els.ttsEnabled.checked;
   state.settings.broadcastEnabled = els.broadcastEnabled.checked;
   saveSettings();
-  updateDuplexUi();
 }
 
 function addSessionDivider(label) {
@@ -502,15 +499,25 @@ function handleInfo(payload) {
   }
 }
 
+async function toggleMute() {
+  if (!state.running) return;
+  state.muted = !state.muted;
+  updateMuteUi();
+  try {
+    await window.danglish?.setMuted?.(state.muted);
+  } catch (error) {
+    showToast(`Could not change mute: ${error.message || error}`);
+  }
+  showToast(state.muted ? "Audio muted." : "Audio unmuted.");
+}
+
 async function startListening() {
   if (!window.danglish || state.busy) return;
   setSettingsFromControls();
-  if (state.settings.broadcastEnabled && !state.settings.ttsEnabled) {
-    showToast("Broadcast needs Speak English enabled.");
-    return;
-  }
+  state.muted = false;
   state.broadcastUrl = "";
   state.broadcastQr = "";
+  updateMuteUi();
   updateBroadcastUi();
   addSessionDivider(`Session ${new Date().toLocaleTimeString()}`);
   setStatus("starting", "Starting the local models…");
@@ -526,8 +533,10 @@ async function startListening() {
 
 async function stopListening() {
   if (!window.danglish) return;
+  state.muted = false;
   state.broadcastUrl = "";
   state.broadcastQr = "";
+  updateMuteUi();
   updateBroadcastUi();
   setStatus("stopping", "Closing the audio streams…");
   try {
@@ -605,23 +614,8 @@ function bindEvents() {
     if (!hidden) els.logs.scrollTop = els.logs.scrollHeight;
   });
 
-  els.fullDuplex.addEventListener("change", () => {
-    setSettingsFromControls();
-    if (state.running) showToast("Full-duplex changed. Restart listening to apply it.");
-  });
-  els.ttsEnabled.addEventListener("change", () => {
-    if (!els.ttsEnabled.checked && els.broadcastEnabled.checked) {
-      els.broadcastEnabled.checked = false;
-      showToast("Broadcast turned off because Speak English is off.");
-    }
-    setSettingsFromControls();
-    if (state.running) showToast("Voice output changed. Restart listening to apply it.");
-  });
+  els.muteBtn.addEventListener("click", toggleMute);
   els.broadcastEnabled.addEventListener("change", () => {
-    if (els.broadcastEnabled.checked && !els.ttsEnabled.checked) {
-      els.ttsEnabled.checked = true;
-      showToast("Speak English enabled for broadcast.");
-    }
     setSettingsFromControls();
     if (state.running) showToast("Broadcast changed. Restart listening to apply it.");
   });
@@ -669,10 +663,8 @@ async function bootstrap() {
     }
     els.feed.scrollTop = els.feed.scrollHeight;
   }
-  els.fullDuplex.checked = state.settings.fullDuplex !== false;
-  els.ttsEnabled.checked = state.settings.ttsEnabled !== false;
   els.broadcastEnabled.checked = state.settings.broadcastEnabled === true;
-  updateDuplexUi();
+  updateMuteUi();
   updateBroadcastUi();
 
   if (!window.danglish) {

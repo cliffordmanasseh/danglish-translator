@@ -11,6 +11,7 @@ function subscribe(channel, callback) {
 contextBridge.exposeInMainWorld("danglish", {
   start: (settings) => ipcRenderer.invoke("backend:start", settings),
   stop: () => ipcRenderer.invoke("backend:stop"),
+  setMuted: (muted) => ipcRenderer.invoke("backend:setMuted", Boolean(muted)),
   state: () => ipcRenderer.invoke("backend:state"),
   listDevices: () => ipcRenderer.invoke("audio:list"),
   listContexts: () => ipcRenderer.invoke("contexts:list"),

@@ -54,21 +54,10 @@
           <span class="talk-label" id="talkLabel">Start listening</span>
         </div>
 
-        <label class="switch-row">
-          <span>
-            <strong>Full-duplex</strong>
-            <small>Keep listening during playback</small>
-          </span>
-          <input type="checkbox" id="fullDuplex" class="switch" />
-        </label>
-
-        <label class="switch-row">
-          <span>
-            <strong>Speak English</strong>
-            <small>Local tiny-voca voice</small>
-          </span>
-          <input type="checkbox" id="ttsEnabled" class="switch" checked />
-        </label>
+        <button class="mute-btn" id="muteBtn" type="button" aria-pressed="false">
+          <strong id="muteLabel">Mute</strong>
+          <small>Captions keep running</small>
+        </button>
 
         <label class="switch-row">
           <span>
@@ -82,10 +71,6 @@
           <a id="broadcastUrl" href="#" target="_blank" rel="noreferrer">Listener page</a>
           <a id="broadcastQr" href="#" target="_blank" rel="noreferrer">QR code</a>
         </div>
-
-        <p class="side-note" id="duplexNote">
-          Use headphones or isolated audio I/O in full-duplex mode.
-        </p>
 
         <div class="sidebar-spacer"></div>
 
@@ -107,7 +92,6 @@
             <p>Speak Danish. Hear English. Nothing leaves this machine.</p>
           </div>
           <div class="top-actions">
-            <span class="badge">Church / sermon</span>
             <button class="text-btn" id="clearBtn" type="button">Clear</button>
           </div>
         </header>
@@ -204,17 +188,15 @@
             </select>
           </label>
           <label>
-            <span>English voice (tiny-voca)</span>
+            <span>English voice</span>
             <select id="voice"></select>
           </label>
         </div>
 
         <p class="dialog-note">
-          The translation model is fixed to the sermon OPUS-MT model; tiny-voca is the
-          English speech generator. On Windows and macOS, the first microphone use
-          triggers the system permission prompt. For a UAD or other multi-channel
-          interface, choose the input channel carrying the microphone (input 1 is usually
-          channel 0).
+          On Windows and macOS, the first microphone use triggers the system permission
+          prompt. For a UAD or other multi-channel interface, choose the input channel
+          carrying the microphone (input 1 is usually channel 0).
         </p>
 
         <div class="dialog-actions">

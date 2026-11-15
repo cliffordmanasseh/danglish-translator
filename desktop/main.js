@@ -17,6 +17,7 @@ let backendState = "idle";
 let backendStateMessage = "Ready";
 let backendLogTail = [];
 let stopRequested = false;
+let backendMuted = false;
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -95,19 +96,15 @@ function buildBackendArgs(settings) {
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
-  if (settings.ttsEnabled !== false) {
-    args.push("--tts-backend", settings.ttsBackend || "tiny-voca");
-    args.push("--tts-voice", settings.voice || "M2");
-  } else {
-    args.push("--no-tts");
-  }
+  args.push("--tts-backend", settings.ttsBackend || "tiny-voca");
+  args.push("--tts-voice", settings.voice || "M2");
   if (settings.broadcastEnabled) args.push("--broadcast");
 
   args.push("--context", "sermon");
 
-  args.push(settings.fullDuplex === false ? "--half-duplex" : "--full-duplex");
+  args.push("--full-duplex");
   if (settings.inputDevice) args.push("--input-device", String(settings.inputDevice));
-  if (settings.ttsEnabled !== false && settings.outputDevice) {
+  if (settings.outputDevice) {
     args.push("--output-device", String(settings.outputDevice));
   }
   if (settings.inputChannel !== undefined && settings.inputChannel !== null) {
@@ -263,11 +260,12 @@ function startBackend(settings) {
         env: {
           ...process.env,
           ...(tinyVocaDir ? { DANGLISH_TINY_VOCA_DIR: tinyVocaDir } : {}),
+          DANGLISH_CONTROL_STDIN: "1",
           PYTHONUNBUFFERED: "1",
           PYTHONIOENCODING: "utf-8",
           PYTHONUTF8: "1",
         },
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       });
     } catch (error) {
@@ -280,6 +278,7 @@ function startBackend(settings) {
     backendProcess = child;
     backendLogTail = [];
     stopRequested = false;
+    backendMuted = false;
 
     const stdout = readline.createInterface({ input: child.stdout });
     stdout.on("line", (line) => {
@@ -473,6 +472,13 @@ if (!gotLock) {
     ipcMain.handle("backend:stop", async () => {
       await stopBackend();
       return { ok: true };
+    });
+    ipcMain.handle("backend:setMuted", async (_event, muted) => {
+      backendMuted = Boolean(muted);
+      if (backendProcess && backendProcess.stdin && !backendProcess.stdin.destroyed) {
+        backendProcess.stdin.write(backendMuted ? "mute\n" : "unmute\n");
+      }
+      return { ok: true, muted: backendMuted };
     });
     ipcMain.handle("backend:state", async () => ({
       state: backendState,
