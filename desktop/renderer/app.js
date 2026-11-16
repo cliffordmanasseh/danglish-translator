@@ -49,8 +49,7 @@ const els = {
   statusDetail: $("statusDetail"),
   talkBtn: $("talkBtn"),
   talkLabel: $("talkLabel"),
-  muteBtn: $("muteBtn"),
-  muteLabel: $("muteLabel"),
+  muteToggle: $("muteToggle"),
   broadcastEnabled: $("broadcastEnabled"),
   broadcastLinks: $("broadcastLinks"),
   broadcastUrl: $("broadcastUrl"),
@@ -64,7 +63,6 @@ const els = {
   deviceInfo: $("deviceInfo"),
   lastEvent: $("lastEvent"),
   rssInfo: $("rssInfo"),
-  modelInfo: $("modelInfo"),
   dialog: $("settingsDialog"),
   form: $("settingsForm"),
   closeSettings: $("closeSettings"),
@@ -159,13 +157,6 @@ function setStatus(kind, message = "") {
     stopping: "Stopping",
     error: "Error",
   };
-  const details = {
-    idle: "Everything runs on this machine.",
-    starting: message || "Loading the local models…",
-    listening: "Speak Danish. Pause when you finish a thought.",
-    stopping: "Closing the audio streams…",
-    error: message || "Something went wrong.",
-  };
   const buttonLabels = {
     idle: "Start listening",
     starting: "Starting…",
@@ -175,7 +166,8 @@ function setStatus(kind, message = "") {
   };
 
   els.statusText.textContent = labels[kind];
-  els.statusDetail.textContent = details[kind];
+  els.statusDetail.textContent = kind === "error" ? message : "";
+  els.statusDetail.hidden = kind !== "error" || !message;
   els.talkLabel.textContent = buttonLabels[kind];
   els.talkBtn.disabled = state.busy;
   els.talkBtn.classList.toggle("is-running", kind === "listening");
@@ -205,10 +197,7 @@ function removeLiveHint() {
 }
 
 function updateMuteUi() {
-  els.muteBtn.disabled = !state.running;
-  els.muteBtn.setAttribute("aria-pressed", state.muted ? "true" : "false");
-  els.muteBtn.classList.toggle("is-muted", state.muted);
-  els.muteLabel.textContent = state.muted ? "Unmute" : "Mute";
+  els.muteToggle.checked = state.muted;
 }
 
 function updateBroadcastUi() {
@@ -334,11 +323,8 @@ async function loadAppInfo() {
     state.appInfo = info || state.appInfo;
     populateVoices();
     populateAsrOptions();
-    if (state.appInfo.packaged) {
-      els.modelInfo.textContent = "Bundled models · Danish Whisper · sermon OPUS-MT · tiny-voca";
-    }
-  } catch (error) {
-    els.modelInfo.textContent = "Backend offline";
+  } catch (_) {
+    /* voices fall back to defaults */
   }
 }
 
@@ -459,9 +445,6 @@ function appendUtterance(payload, { persist = true } = {}) {
   if (typeof payload.total_ms === "number") {
     els.lastEvent.textContent = `last turn ${formatMs(payload.total_ms)}`;
   }
-  if (state.status === "listening") {
-    els.statusDetail.textContent = "Speak Danish. Pause when you finish a thought.";
-  }
 }
 
 function appendLog(stream, line) {
@@ -499,9 +482,8 @@ function handleInfo(payload) {
   }
 }
 
-async function toggleMute() {
-  if (!state.running) return;
-  state.muted = !state.muted;
+async function setMute(muted) {
+  state.muted = muted;
   updateMuteUi();
   try {
     await window.danglish?.setMuted?.(state.muted);
@@ -514,10 +496,8 @@ async function toggleMute() {
 async function startListening() {
   if (!window.danglish || state.busy) return;
   setSettingsFromControls();
-  state.muted = false;
   state.broadcastUrl = "";
   state.broadcastQr = "";
-  updateMuteUi();
   updateBroadcastUi();
   addSessionDivider(`Session ${new Date().toLocaleTimeString()}`);
   setStatus("starting", "Starting the local models…");
@@ -533,10 +513,8 @@ async function startListening() {
 
 async function stopListening() {
   if (!window.danglish) return;
-  state.muted = false;
   state.broadcastUrl = "";
   state.broadcastQr = "";
-  updateMuteUi();
   updateBroadcastUi();
   setStatus("stopping", "Closing the audio streams…");
   try {
@@ -614,7 +592,7 @@ function bindEvents() {
     if (!hidden) els.logs.scrollTop = els.logs.scrollHeight;
   });
 
-  els.muteBtn.addEventListener("click", toggleMute);
+  els.muteToggle.addEventListener("change", () => setMute(els.muteToggle.checked));
   els.broadcastEnabled.addEventListener("change", () => {
     setSettingsFromControls();
     if (state.running) showToast("Broadcast changed. Restart listening to apply it.");
@@ -643,7 +621,6 @@ function bindEvents() {
         appendUtterance(payload);
       } else if (payload?.type === "speech" && state.status === "listening") {
         const duration = Number(payload.duration_s || 0).toFixed(1);
-        els.statusDetail.textContent = `Translating ${duration}s of speech…`;
         els.lastEvent.textContent = `processing ${duration}s`;
       }
     });
@@ -668,7 +645,6 @@ async function bootstrap() {
   updateBroadcastUi();
 
   if (!window.danglish) {
-    els.modelInfo.textContent = "Open in Electron";
     showToast("This interface needs the Electron shell. Run `npm start` in desktop/.");
     return;
   }

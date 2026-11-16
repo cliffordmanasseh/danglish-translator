@@ -36,7 +36,7 @@ profile; there is no model or terminology selector.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The sidebar **Broadcast to phones** toggle serves the English TTS over the same
-Wi-Fi and shows listener/QR links after startup. The **Mute** button silences
+Wi-Fi and shows listener/QR links after startup. The **Mute** switch silences
 local and broadcast audio without stopping captions.
 Hotspot mode still uses the CLI: `danglish talk --broadcast-hotspot ...`.
 The last 100 caption turns are kept in the app's local storage until you press

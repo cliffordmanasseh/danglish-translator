@@ -278,7 +278,7 @@ function startBackend(settings) {
     backendProcess = child;
     backendLogTail = [];
     stopRequested = false;
-    backendMuted = false;
+    if (backendMuted && child.stdin) child.stdin.write("mute\n");
 
     const stdout = readline.createInterface({ input: child.stdout });
     stdout.on("line", (line) => {
