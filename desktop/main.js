@@ -10,6 +10,10 @@ const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
 const repoRoot = path.resolve(__dirname, "..");
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
+const DEFAULT_LLAMA_SERVER = "/data/llama.cpp/build/bin/llama-server";
+const DEFAULT_LLAMA_MODEL =
+  "/data/danglish_translator/models/eurollm-sermon-qwen-full-q5_k_m.gguf";
+const LLAMA_URL = "http://127.0.0.1:18080";
 
 let mainWindow = null;
 let backendProcess = null;
@@ -18,6 +22,8 @@ let backendStateMessage = "Ready";
 let backendLogTail = [];
 let stopRequested = false;
 let backendMuted = false;
+let llamaProcess = null;
+let llamaOwned = false;
 
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -35,6 +41,181 @@ function sendLog(stream, line) {
   backendLogTail.push(line);
   if (backendLogTail.length > 80) backendLogTail.shift();
   send("backend:log", { stream, line });
+}
+
+let backendLogFile = null;
+
+function prepareBackendLog() {
+  try {
+    backendLogFile = path.join(app.getPath("userData"), "backend.log");
+    if (fs.existsSync(backendLogFile) && fs.statSync(backendLogFile).size > 5 * 1024 * 1024) {
+      fs.renameSync(backendLogFile, `${backendLogFile}.old`);
+    }
+    fs.appendFileSync(backendLogFile, `\n=== ${new Date().toISOString()} ===\n`);
+  } catch (_) {
+    backendLogFile = null;
+  }
+}
+
+function writeBackendLog(stream, line) {
+  if (!backendLogFile) return;
+  try {
+    fs.appendFileSync(backendLogFile, `[${stream}] ${line}\n`);
+  } catch (_) {
+    /* logging must never break the app */
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function llamaPaths() {
+  const resources = app.isPackaged
+    ? process.resourcesPath
+    : path.join(repoRoot, "desktop", "resources");
+  const bundledServer = path.join(resources, "llama", "llama-server");
+  const bundledModel = path.join(
+    resources,
+    "llama",
+    "eurollm-sermon-qwen-full-q5_k_m.gguf"
+  );
+  return {
+    server:
+      process.env.DANGLISH_LLAMA_SERVER ||
+      (fs.existsSync(bundledServer) ? bundledServer : DEFAULT_LLAMA_SERVER),
+    model:
+      process.env.DANGLISH_LLAMA_MODEL ||
+      (fs.existsSync(bundledModel) ? bundledModel : DEFAULT_LLAMA_MODEL),
+  };
+}
+
+async function llamaHealthy() {
+  try {
+    const response = await fetch(`${LLAMA_URL}/health`, {
+      signal: AbortSignal.timeout(1200),
+    });
+    return response.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function ensureLlamaServer() {
+  if (await llamaHealthy()) {
+    sendLog("app", "EuroLLM server already running");
+    return { ok: true };
+  }
+
+  const { server, model } = llamaPaths();
+  if (!fs.existsSync(server)) {
+    return {
+      ok: false,
+      error: `EuroLLM server not found at ${server}. Set DANGLISH_LLAMA_SERVER.`,
+    };
+  }
+  if (!fs.existsSync(model)) {
+    return {
+      ok: false,
+      error: `EuroLLM model not found at ${model}. Set DANGLISH_LLAMA_MODEL.`,
+    };
+  }
+
+  sendStatus("starting", "Starting EuroLLM…");
+  const args = [
+    "-m",
+    model,
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "18080",
+    "-c",
+    "768",
+    "-b",
+    "128",
+    "-ub",
+    "64",
+    "-np",
+    "1",
+    "-ctk",
+    "q8_0",
+    "-ctv",
+    "q8_0",
+    "-t",
+    "16",
+    "--no-webui",
+  ];
+  sendLog("app", `$ ${server} ${args.join(" ")}`);
+  writeBackendLog("app", `$ ${server} ${args.join(" ")}`);
+
+  let child;
+  try {
+    child = spawn(server, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  } catch (error) {
+    return { ok: false, error: `Could not start EuroLLM: ${error.message}` };
+  }
+
+  llamaProcess = child;
+  llamaOwned = true;
+  for (const [stream, name] of [
+    [child.stdout, "llama-out"],
+    [child.stderr, "llama"],
+  ]) {
+    const reader = readline.createInterface({ input: stream });
+    reader.on("line", (line) => {
+      writeBackendLog(name, line);
+      const trimmed = line.trim();
+      if (trimmed && name === "llama-out") sendLog("llama", trimmed);
+    });
+  }
+
+  child.on("error", (error) => {
+    writeBackendLog("llama", `error: ${error.message}`);
+    sendLog("app", `EuroLLM error: ${error.message}`);
+  });
+  child.on("exit", (code, signal) => {
+    writeBackendLog("llama", `exited ${code ?? signal ?? "unknown"}`);
+    if (llamaProcess === child) {
+      llamaProcess = null;
+      llamaOwned = false;
+    }
+    if (backendProcess) sendLog("app", `EuroLLM server exited (${code ?? signal}).`);
+  });
+
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      const tail = backendLogTail.slice(-3).join("\n");
+      return {
+        ok: false,
+        error: `EuroLLM server exited (${child.exitCode}).${tail ? `\n${tail}` : ""}`,
+      };
+    }
+    if (await llamaHealthy()) {
+      sendLog("app", "EuroLLM server ready");
+      return { ok: true };
+    }
+    await sleep(500);
+  }
+
+  stopLlamaServer();
+  return { ok: false, error: "EuroLLM server did not start within 60 seconds." };
+}
+
+function stopLlamaServer() {
+  const child = llamaProcess;
+  const owned = llamaOwned;
+  llamaProcess = null;
+  llamaOwned = false;
+  if (!owned || !child || child.exitCode !== null) return;
+  try {
+    child.kill("SIGTERM");
+  } catch (_) {
+    /* already gone */
+  }
 }
 
 function backendCommand() {
@@ -92,7 +273,8 @@ function buildBackendArgs(settings) {
   const models = modelPaths(settings);
   const args = ["talk", "--json"];
 
-  if (fs.existsSync(models.mt)) args.push("--model-path", models.mt);
+  args.push("--backend", "llama");
+  args.push("--server-url", LLAMA_URL);
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
@@ -227,100 +409,111 @@ async function stopBackend() {
   stopRequested = false;
 }
 
-function startBackend(settings) {
-  return new Promise((resolve) => {
-    if (backendProcess) {
-      resolve({ ok: false, error: "The backend is already running." });
-      return;
-    }
+async function startBackend(settings) {
+  if (backendProcess) {
+    return { ok: false, error: "The backend is already running." };
+  }
 
-    const { command, prefix } = backendCommand();
-    if (!fs.existsSync(command)) {
-      const message = app.isPackaged
-        ? `Bundled backend not found at ${command}.`
-        : `Python environment not found at ${command}. Run "uv sync --extra speech" or set DANGLISH_PYTHON.`;
-      sendLog("app", message);
-      sendStatus("error", message);
-      resolve({ ok: false, error: message });
-      return;
-    }
+  const { command, prefix } = backendCommand();
+  if (!fs.existsSync(command)) {
+    const message = app.isPackaged
+      ? `Bundled backend not found at ${command}.`
+      : `Python environment not found at ${command}. Run "uv sync --extra speech" or set DANGLISH_PYTHON.`;
+    sendLog("app", message);
+    sendStatus("error", message);
+    return { ok: false, error: message };
+  }
 
-    const args = [...prefix, ...buildBackendArgs(settings)];
-    const models = modelPaths(settings);
-    const tinyVocaDir = fs.existsSync(path.join(models.tinyVoca, "onnx", "model.onnx"))
-      ? models.tinyVoca
-      : null;
-    sendLog("app", `$ ${command} ${args.join(" ")}`);
-    sendStatus("starting", "Starting…");
+  prepareBackendLog();
+  writeBackendLog("app", `=== start ${new Date().toISOString()} ===`);
 
-    let child;
+  const llama = await ensureLlamaServer();
+  if (!llama.ok) {
+    writeBackendLog("app", llama.error);
+    sendStatus("error", llama.error);
+    return { ok: false, error: llama.error };
+  }
+
+  const args = [...prefix, ...buildBackendArgs(settings)];
+  const models = modelPaths(settings);
+  const tinyVocaDir = fs.existsSync(path.join(models.tinyVoca, "onnx", "model.onnx"))
+    ? models.tinyVoca
+    : null;
+  sendLog("app", `$ ${command} ${args.join(" ")}`);
+  writeBackendLog("app", `$ ${command} ${args.join(" ")}`);
+  sendStatus("starting", "Starting…");
+
+  let child;
+  try {
+    child = spawn(command, args, {
+      cwd: app.isPackaged ? process.resourcesPath : repoRoot,
+      env: {
+        ...process.env,
+        ...(tinyVocaDir ? { DANGLISH_TINY_VOCA_DIR: tinyVocaDir } : {}),
+        DANGLISH_CONTROL_STDIN: "1",
+        PYTHONUNBUFFERED: "1",
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUTF8: "1",
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+  } catch (error) {
+    const message = `Could not start backend: ${error.message}`;
+    writeBackendLog("app", message);
+    sendStatus("error", message);
+    return { ok: false, error: message };
+  }
+
+  backendProcess = child;
+  backendLogTail = [];
+  stopRequested = false;
+  if (backendMuted && child.stdin) child.stdin.write("mute\n");
+
+  const stdout = readline.createInterface({ input: child.stdout });
+  stdout.on("line", (line) => {
+    writeBackendLog("stdout", line);
+    const trimmed = line.trim();
+    if (!trimmed) return;
     try {
-      child = spawn(command, args, {
-        cwd: app.isPackaged ? process.resourcesPath : repoRoot,
-        env: {
-          ...process.env,
-          ...(tinyVocaDir ? { DANGLISH_TINY_VOCA_DIR: tinyVocaDir } : {}),
-          DANGLISH_CONTROL_STDIN: "1",
-          PYTHONUNBUFFERED: "1",
-          PYTHONIOENCODING: "utf-8",
-          PYTHONUTF8: "1",
-        },
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      });
-    } catch (error) {
-      const message = `Could not start backend: ${error.message}`;
-      sendStatus("error", message);
-      resolve({ ok: false, error: message });
-      return;
+      const event = JSON.parse(trimmed);
+      send("backend:event", event);
+    } catch (_) {
+      sendLog("stdout", trimmed);
     }
-
-    backendProcess = child;
-    backendLogTail = [];
-    stopRequested = false;
-    if (backendMuted && child.stdin) child.stdin.write("mute\n");
-
-    const stdout = readline.createInterface({ input: child.stdout });
-    stdout.on("line", (line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      try {
-        const event = JSON.parse(trimmed);
-        send("backend:event", event);
-      } catch (_) {
-        sendLog("stdout", trimmed);
-      }
-    });
-
-    const stderr = readline.createInterface({ input: child.stderr });
-    stderr.on("line", (line) => {
-      handleBackendLine(line);
-      sendLog("stderr", line);
-    });
-
-    child.on("error", (error) => {
-      sendLog("app", `backend error: ${error.message}`);
-      sendStatus("error", error.message);
-    });
-
-    child.on("exit", (code, signal) => {
-      if (backendProcess === child) backendProcess = null;
-      const wasStop = stopRequested;
-      stopRequested = false;
-
-      if (wasStop || code === 0) {
-        sendStatus("idle", "Stopped");
-      } else {
-        const tail = backendLogTail.slice(-3).join("\n");
-        sendStatus(
-          "error",
-          `Backend exited (${code ?? signal ?? "unknown"}).${tail ? `\n${tail}` : ""}`
-        );
-      }
-    });
-
-    resolve({ ok: true });
   });
+
+  const stderr = readline.createInterface({ input: child.stderr });
+  stderr.on("line", (line) => {
+    writeBackendLog("stderr", line);
+    handleBackendLine(line);
+    sendLog("stderr", line);
+  });
+
+  child.on("error", (error) => {
+    writeBackendLog("app", `backend error: ${error.message}`);
+    sendLog("app", `backend error: ${error.message}`);
+    sendStatus("error", error.message);
+  });
+
+  child.on("exit", (code, signal) => {
+    if (backendProcess === child) backendProcess = null;
+    const wasStop = stopRequested;
+    stopRequested = false;
+    writeBackendLog("app", `backend exited ${code ?? signal ?? "unknown"}`);
+
+    if (wasStop || code === 0) {
+      sendStatus("idle", "Stopped");
+    } else {
+      const tail = backendLogTail.slice(-3).join("\n");
+      sendStatus(
+        "error",
+        `Backend exited (${code ?? signal ?? "unknown"}).${tail ? `\n${tail}` : ""}`
+      );
+    }
+  });
+
+  return { ok: true };
 }
 
 function runBackendJson(args, timeoutMs = 20000) {
@@ -502,15 +695,17 @@ if (!gotLock) {
 
   app.on("window-all-closed", async () => {
     await stopBackend();
+    stopLlamaServer();
     if (!isMac) app.quit();
   });
 
   let quitting = false;
   app.on("before-quit", async (event) => {
-    if (quitting || !backendProcess) return;
+    if (quitting || (!backendProcess && !llamaOwned)) return;
     event.preventDefault();
     quitting = true;
     await stopBackend();
+    stopLlamaServer();
     app.quit();
   });
 }

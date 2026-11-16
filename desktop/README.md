@@ -6,7 +6,7 @@ the UI; a bundled Python sidecar owns the models and audio devices.
 ```text
 Electron main process
   ├─ renderer (HTML/CSS/JS)          captions, controls, settings
-  └─ Python sidecar (PyInstaller)    ASR → OPUS-MT → tiny-voca → audio
+  └─ Python sidecar (PyInstaller)    ASR → EuroLLM → tiny-voca → audio
        └─ bundled models             resources/models
 ```
 
@@ -31,8 +31,19 @@ npm start
 Set `DANGLISH_PYTHON=/path/to/python` if you use a different environment. Set
 `DANGLISH_DEVTOOLS=1` to open Chromium DevTools on launch.
 
-The desktop app is fixed to the sermon OPUS-MT model and the church terminology
-profile; there is no model or terminology selector.
+The desktop app is fixed to the EuroLLM sermon translator and the church terminology
+profile; there is no model or terminology selector. The app starts a local
+`llama-server` in the background on first use and stops it when the app exits.
+
+The default server and model paths are:
+
+```text
+/data/llama.cpp/build/bin/llama-server
+/data/danglish_translator/models/eurollm-sermon-qwen-full-q5_k_m.gguf
+```
+
+Override them with `DANGLISH_LLAMA_SERVER` and `DANGLISH_LLAMA_MODEL`. The backend log
+is written to `~/.config/danglish-desktop/backend.log`.
 
 The UI starts the backend only when you click **Start listening**. Models load at that
 point. The sidebar **Broadcast to phones** toggle serves the English TTS over the same
@@ -40,10 +51,11 @@ Wi-Fi and shows listener/QR links after startup. The **Mute** switch silences
 local and broadcast audio without stopping captions.
 Hotspot mode still uses the CLI: `danglish talk --broadcast-hotspot ...`.
 The last 100 caption turns are kept in the app's local storage until you press
-**Clear**; they never leave the machine. Closing the window does not lose the transcript. In development, the Danish Whisper fine-tune and the tiny-voca voice are downloaded on
-first use; the MT model must already exist from `danglish fetch`.
+**Clear**; they never leave the machine. Closing the window does not lose the transcript.
+The bundled ASR and tiny-voca models are reused automatically; EuroLLM runs from the
+paths above.
 
-If you already built the model bundle (~492 MB), the dev app uses it automatically:
+If you already built the model bundle, the dev app reuses its ASR and tiny-voca models:
 
 ```text
 desktop/resources/models/
@@ -124,7 +136,9 @@ always on in the desktop app; use headphones or isolated audio I/O. Alternativel
 
 - **“Python environment not found”** — run `uv sync` at the repository root, or set
   `DANGLISH_PYTHON`.
-- **Model not found** — run `uv run danglish fetch` in the repository root.
+- **EuroLLM server/model not found** — set `DANGLISH_LLAMA_SERVER` and
+  `DANGLISH_LLAMA_MODEL`, or place them at the default paths above.
+- **Backend stopped** — read `~/.config/danglish-desktop/backend.log` for the last run.
 - **No audio from the UI** — check the device names/channels, the interface monitor knob,
   and the OS microphone permission. Test with `danglish audio-check`.
 - **Electron sandbox error on Linux** — run the AppImage with `--no-sandbox` for local
@@ -143,6 +157,7 @@ headroom for the OS. The CLI (`danglish talk`) remains the low-memory option.
 ## Licensing
 
 The desktop code is Apache-2.0. The bundled tiny-voca model, dizione, and ONNX Runtime
-are Apache-2.0/MIT; the optional Piper fallback is not bundled. The app ships `LICENSE`
-and `NOTICE` under `resources/legal` and exposes them from the Licenses button. If you
-distribute a built app, retain the model and phonemizer attributions in `NOTICE`.
+are Apache-2.0/MIT; the optional Piper fallback is not bundled. The EuroLLM fine-tuned
+weights are research-use-only. The app ships `LICENSE` and `NOTICE` under
+`resources/legal` and exposes them from the Licenses button. If you distribute a built
+app, retain the model and phonemizer attributions in `NOTICE`.

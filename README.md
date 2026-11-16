@@ -67,8 +67,9 @@ sudo apt install libportaudio2
 
 The Chromium/Electron app in [`desktop/`](desktop/) is the audio-to-audio UI: a large
 start/stop control, live Danish/English captions, fixed church terminology, always-on
-full-duplex, and audio-device/channel settings. It bundles the Python sidecar and the sermon
-translation model, Danish ASR, and tiny-voca voice.
+full-duplex, and audio-device/channel settings. It bundles the Python sidecar, Danish
+ASR, and tiny-voca; translation uses the EuroLLM sermon model via a local llama.cpp
+server started by the app.
 
 For development:
 
