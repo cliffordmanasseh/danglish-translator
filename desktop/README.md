@@ -111,9 +111,10 @@ browser `getUserMedia` prompt.
 
 ## Audio interfaces
 
-The UI exposes input/output device names plus input/output channel numbers. Prefer device
-names over indices — PortAudio indices can change when PipeWire nodes are reordered. In
-the app, click **Audio & voice settings → Refresh devices** after plugging in an interface.
+The UI exposes input/output device names plus input/output channel numbers under
+**Voice settings → Advanced audio settings**. Prefer device names over indices —
+PortAudio indices can change when PipeWire nodes are reordered. Click **Refresh devices**
+after plugging in an interface.
 
 For a UAD Volt 4, input 1 is normally channel 0 and input 2 is channel 1. Full-duplex is
 always on in the desktop app; use headphones or isolated audio I/O. Alternatively, run

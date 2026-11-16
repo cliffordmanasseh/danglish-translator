@@ -96,7 +96,7 @@ function buildBackendArgs(settings) {
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
-  args.push("--tts-backend", settings.ttsBackend || "tiny-voca");
+  args.push("--tts-backend", "tiny-voca");
   args.push("--tts-voice", settings.voice || "M2");
   if (settings.broadcastEnabled) args.push("--broadcast");
 

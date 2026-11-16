@@ -71,7 +71,7 @@
         <div class="sidebar-spacer"></div>
 
         <button class="text-btn" id="settingsBtn" type="button">
-          Audio &amp; voice settings
+          Voice settings
         </button>
         <button class="text-btn" id="legalBtn" type="button">Licenses &amp; attribution</button>
 
@@ -127,65 +127,73 @@
       <form id="settingsForm" method="dialog">
         <div class="dialog-head">
           <div>
-            <h2>Audio &amp; voice</h2>
+            <h2>Voice</h2>
           </div>
           <button class="icon-btn" id="closeSettings" type="button" aria-label="Close">×</button>
         </div>
 
-        <div class="settings-grid">
-          <label>
-            <span>Input device</span>
-            <select id="inputDevice"></select>
-          </label>
-          <label>
-            <span>Output device</span>
-            <select id="outputDevice"></select>
-          </label>
-          <label>
-            <span>Input channel</span>
-            <input id="inputChannel" type="number" min="0" step="1" />
-          </label>
-          <label>
-            <span>Output channel</span>
-            <input id="outputChannel" type="number" min="0" step="1" placeholder="auto" />
-          </label>
-          <label>
-            <span>Silence before cutting (ms)</span>
-            <input id="silenceMs" type="number" min="150" step="50" />
-          </label>
-          <label>
-            <span>Max chunk (seconds)</span>
-            <input id="maxSegmentS" type="number" min="1" max="30" step="0.5" />
-          </label>
-          <label>
-            <span>VAD threshold</span>
-            <input id="minEnergy" type="number" min="0.0005" step="0.0005" />
-          </label>
-          <label>
-            <span>Danish speech recognition</span>
-            <select id="asrModel">
-              <option value="lucasw89/whisper-small-danish-ct2-int8">
-                Danish Whisper small — recommended
-              </option>
-              <option value="small">Stock Whisper small</option>
-              <option value="base">Stock base — lower memory, lower accuracy</option>
-              <option value="tiny">Stock tiny — experimental</option>
-            </select>
-          </label>
+        <div class="settings-grid single">
           <label>
             <span>English voice</span>
             <select id="voice"></select>
           </label>
         </div>
 
-        <p class="dialog-note">
-          On Windows and macOS, the first microphone use triggers the system permission
-          prompt. For a UAD or other multi-channel interface, choose the input channel
-          carrying the microphone (input 1 is usually channel 0).
-        </p>
+        <details class="advanced-settings">
+          <summary>Advanced audio settings</summary>
+
+          <div class="settings-grid">
+            <label>
+              <span>Input device</span>
+              <select id="inputDevice"></select>
+            </label>
+            <label>
+              <span>Output device</span>
+              <select id="outputDevice"></select>
+            </label>
+            <label>
+              <span>Input channel</span>
+              <input id="inputChannel" type="number" min="0" step="1" />
+            </label>
+            <label>
+              <span>Output channel</span>
+              <input id="outputChannel" type="number" min="0" step="1" placeholder="auto" />
+            </label>
+            <label>
+              <span>Silence before cutting (ms)</span>
+              <input id="silenceMs" type="number" min="150" step="50" />
+            </label>
+            <label>
+              <span>Max chunk (seconds)</span>
+              <input id="maxSegmentS" type="number" min="1" max="30" step="0.5" />
+            </label>
+            <label>
+              <span>VAD threshold</span>
+              <input id="minEnergy" type="number" min="0.0005" step="0.0005" />
+            </label>
+            <label>
+              <span>Danish speech recognition</span>
+              <select id="asrModel">
+                <option value="lucasw89/whisper-small-danish-ct2-int8">
+                  Danish Whisper small — recommended
+                </option>
+                <option value="small">Stock Whisper small</option>
+                <option value="base">Stock base — lower memory, lower accuracy</option>
+                <option value="tiny">Stock tiny — experimental</option>
+              </select>
+            </label>
+          </div>
+
+          <p class="dialog-note">
+            On Windows and macOS, the first microphone use triggers the system permission
+            prompt. For a UAD or other multi-channel interface, choose the input channel
+            carrying the microphone (input 1 is usually channel 0).
+          </p>
+
+          <button class="text-btn" id="refreshDevices" type="button">Refresh devices</button>
+        </details>
 
         <div class="dialog-actions">
-          <button class="text-btn" id="refreshDevices" type="button">Refresh devices</button>
           <span class="spacer"></span>
           <button class="text-btn" id="cancelSettings" type="button">Cancel</button>
           <button class="primary" type="submit">Save</button>

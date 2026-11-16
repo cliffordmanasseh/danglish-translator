@@ -85,7 +85,12 @@ function loadSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const settings = { ...DEFAULT_SETTINGS };
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in parsed) settings[key] = parsed[key];
+    }
+    if (!["M2", "F2"].includes(settings.voice)) settings.voice = "M2";
+    return settings;
   } catch (_) {
     return { ...DEFAULT_SETTINGS };
   }
@@ -239,6 +244,7 @@ function populateAsrOptions() {
   for (const option of Array.from(els.asrModel.options)) {
     option.disabled = option.value !== DEFAULT_ASR_MODEL;
   }
+  state.settings.asrModel = DEFAULT_ASR_MODEL;
   els.asrModel.value = DEFAULT_ASR_MODEL;
 }
 
