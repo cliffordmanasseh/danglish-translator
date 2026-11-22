@@ -93,3 +93,23 @@ def test_reset_drops_in_progress_audio() -> None:
     assert not vad.active
     assert vad.flush() == []
     assert vad.push(_silence(1)[0]) == []
+
+
+def test_steady_noise_above_threshold_is_learned() -> None:
+    import numpy as np
+
+    from danglish.audio.vad import EnergyVAD
+
+    vad = EnergyVAD(max_utterance_s=1.0, min_energy=0.006)
+    rng = np.random.default_rng(0)
+    frame = 480
+    emitted = 0
+    for _ in range(300):
+        noise = (rng.standard_normal(frame) * 0.06).astype(np.float32)
+        emitted += len(vad.push(noise))
+    late = 0
+    for _ in range(300):
+        noise = (rng.standard_normal(frame) * 0.06).astype(np.float32)
+        late += len(vad.push(noise))
+    assert emitted >= 1
+    assert late == 0

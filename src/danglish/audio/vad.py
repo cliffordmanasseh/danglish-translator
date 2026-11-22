@@ -43,6 +43,7 @@ class EnergyVAD:
         self.active = False
         self._ring: deque[np.ndarray] = deque(maxlen=max(1, round(500 / frame_ms)))
         self._buffer: list[np.ndarray] = []
+        self._rms: list[float] = []
         self._speech_run = 0
         self._silence_frames = 0
 
@@ -71,16 +72,19 @@ class EnergyVAD:
                     self._silence_frames = 0
             else:
                 self._speech_run = 0
-                self.noise_floor = 0.95 * self.noise_floor + 0.05 * min(rms, self.min_energy)
+                self.noise_floor = 0.95 * self.noise_floor + 0.05 * rms
             return completed
 
         self._buffer.append(samples.copy())
+        self._rms.append(rms)
         if is_speech:
             self._silence_frames = 0
         else:
             self._silence_frames += 1
 
         if self._silence_frames >= self.end_silence_frames or len(self._buffer) >= self.max_frames:
+            if self._silence_frames < self.end_silence_frames:
+                self._learn_steady_noise(threshold)
             utterance = self._finish()
             if utterance is not None:
                 completed.append(utterance)
@@ -104,7 +108,22 @@ class EnergyVAD:
         self._speech_run = 0
         self._silence_frames = 0
 
+    def _learn_steady_noise(self, threshold: float) -> None:
+        """A forced cut with no pauses at all means steady noise, not speech.
+
+        Real speech has quiet gaps between words, so its low-percentile energy
+        stays below the threshold. If even the quiet frames are above it, treat
+        that level as the new noise floor.
+        """
+
+        if len(self._rms) < 10:
+            return
+        quiet = float(np.percentile(self._rms, 20))
+        if quiet >= threshold:
+            self.noise_floor = max(self.noise_floor, quiet)
+
     def _finish(self) -> np.ndarray | None:
+        self._rms = []
         buffer = self._buffer
 
         # Keep a short tail of silence: ASR models often need a little context

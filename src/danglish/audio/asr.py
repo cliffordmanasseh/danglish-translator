@@ -89,8 +89,35 @@ class WhisperASR:
             vad_filter=False,
             without_timestamps=True,
             temperature=0.0,
+            repetition_penalty=1.1,
         )
-        return " ".join(segment.text.strip() for segment in segments).strip()
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+        return collapse_repetitions(text)
 
     def close(self) -> None:
         self._model = None  # type: ignore[assignment]
+
+
+def collapse_repetitions(text: str, *, min_repeats: int = 3, max_phrase: int = 12) -> str:
+    """Collapse a phrase repeated ``min_repeats``+ times in a row to one copy.
+
+    Whisper can fall into a loop on noisy audio ("det eneste jeg kunne bruge" x 20).
+    Genuine speech almost never repeats the same 1-12 word phrase three times.
+    """
+
+    words = text.split()
+    changed = True
+    while changed:
+        changed = False
+        for size in range(1, max_phrase + 1):
+            i = 0
+            while i + size * min_repeats <= len(words):
+                phrase = words[i : i + size]
+                count = 1
+                while words[i + count * size : i + (count + 1) * size] == phrase:
+                    count += 1
+                if count >= min_repeats:
+                    del words[i + size : i + count * size]
+                    changed = True
+                i += 1
+    return " ".join(words)
