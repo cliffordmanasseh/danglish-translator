@@ -866,8 +866,8 @@ def build_parser() -> argparse.ArgumentParser:
     talk.add_argument(
         "--min-energy",
         type=float,
-        default=0.006,
-        help="VAD energy threshold (default: 0.006)",
+        default=0.003,
+        help="VAD energy threshold (default: 0.003)",
     )
     talk.add_argument(
         "--silence-ms", type=int, default=300, help="silence before cutting (default: 300 ms)"

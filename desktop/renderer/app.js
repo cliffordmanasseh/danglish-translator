@@ -1,6 +1,6 @@
 "use strict";
 
-const STORAGE_KEY = "danglish.desktop.settings.v3";
+const STORAGE_KEY = "danglish.desktop.settings.v4";
 const HISTORY_KEY = "danglish.desktop.history.v1";
 const DEFAULT_ASR_MODEL = "lucasw89/whisper-small-danish-ct2-int8";
 
@@ -9,9 +9,9 @@ const DEFAULT_SETTINGS = {
   outputDevice: "",
   inputChannel: 0,
   outputChannel: null,
-  silenceMs: 300,
+  silenceMs: 400,
   maxSegmentS: 4.0,
-  minEnergy: 0.006,
+  minEnergy: 0.003,
   asrModel: DEFAULT_ASR_MODEL,
   voice: "M2",
   broadcastEnabled: false,
@@ -557,7 +557,7 @@ function openSettings() {
       : String(state.settings.outputChannel);
   els.silenceMs.value = String(state.settings.silenceMs ?? 300);
   els.maxSegmentS.value = String(state.settings.maxSegmentS ?? 4.0);
-  els.minEnergy.value = String(state.settings.minEnergy ?? 0.006);
+  els.minEnergy.value = String(state.settings.minEnergy ?? 0.003);
   els.asrModel.value = state.settings.asrModel || DEFAULT_ASR_MODEL;
   populateVoices();
   els.voice.value = state.settings.voice;
@@ -583,7 +583,7 @@ function saveDialogSettings(event) {
   state.settings.silenceMs = Number.isFinite(silence) ? Math.max(150, silence) : 300;
   state.settings.maxSegmentS =
     Number.isFinite(maxSegment) && maxSegment >= 1 ? Math.min(30, maxSegment) : 4.0;
-  state.settings.minEnergy = Number.isFinite(energy) && energy > 0 ? energy : 0.006;
+  state.settings.minEnergy = Number.isFinite(energy) && energy > 0 ? energy : 0.003;
   state.settings.asrModel = els.asrModel.value;
   state.settings.voice = els.voice.value;
 

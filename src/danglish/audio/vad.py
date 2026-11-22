@@ -22,7 +22,7 @@ class EnergyVAD:
         end_silence_ms: int = 600,
         max_utterance_s: float = 15.0,
         min_utterance_s: float = 0.3,
-        min_energy: float = 0.006,
+        min_energy: float = 0.003,
         energy_multiplier: float = 3.0,
     ) -> None:
         if sample_rate <= 0 or frame_ms <= 0:

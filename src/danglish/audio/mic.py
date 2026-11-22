@@ -53,7 +53,7 @@ def run_talk(
     output_rate: int | None = None,
     input_channels: int | None = None,
     output_channels: int | None = None,
-    min_energy: float = 0.006,
+    min_energy: float = 0.003,
     silence_ms: int = 300,
     max_segment_s: float = 4.0,
     language: str = "da",
