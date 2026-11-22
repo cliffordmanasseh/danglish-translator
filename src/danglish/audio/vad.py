@@ -55,6 +55,9 @@ class EnergyVAD:
             samples = samples.mean(axis=1)
         if samples.size == 0:
             return []
+        # Some microphones carry a constant DC offset that would otherwise count
+        # as loud, permanent "speech".
+        samples = samples - float(samples.mean())
 
         rms = float(np.sqrt(np.mean(np.square(samples))) + 1e-12)
         threshold = max(self.min_energy, self.noise_floor * self.energy_multiplier)

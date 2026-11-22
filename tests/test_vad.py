@@ -113,3 +113,17 @@ def test_steady_noise_above_threshold_is_learned() -> None:
         late += len(vad.push(noise))
     assert emitted >= 1
     assert late == 0
+
+
+def test_dc_offset_is_not_speech() -> None:
+    import numpy as np
+
+    from danglish.audio.vad import EnergyVAD
+
+    vad = EnergyVAD()
+    rng = np.random.default_rng(1)
+    out = 0
+    for _ in range(300):
+        frame = (0.03 + rng.standard_normal(480) * 0.004).astype(np.float32)
+        out += len(vad.push(frame))
+    assert out == 0
