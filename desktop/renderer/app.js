@@ -50,6 +50,7 @@ const els = {
   talkBtn: $("talkBtn"),
   talkLabel: $("talkLabel"),
   muteToggle: $("muteToggle"),
+  broadcastRow: $("broadcastRow"),
   broadcastEnabled: $("broadcastEnabled"),
   broadcastLinks: $("broadcastLinks"),
   broadcastUrl: $("broadcastUrl"),
@@ -329,6 +330,12 @@ async function loadAppInfo() {
     state.appInfo = info || state.appInfo;
     populateVoices();
     populateAsrOptions();
+    if (state.appInfo.broadcast === false) {
+      els.broadcastRow.hidden = true;
+      els.broadcastEnabled.checked = false;
+      state.settings.broadcastEnabled = false;
+      els.broadcastLinks.classList.add("hidden");
+    }
   } catch (_) {
     /* voices fall back to defaults */
   }

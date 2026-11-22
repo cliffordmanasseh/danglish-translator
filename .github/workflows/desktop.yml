@@ -62,6 +62,14 @@ jobs:
       - name: Install Python dependencies
         run: uv sync --python 3.12 --extra dev --extra speech --extra convert --extra build
 
+      - name: Download sermon OPUS weights
+        shell: bash
+        run: |
+          mkdir -p release/sermon-opus-model
+          curl -L --fail --retry 3 -o "$RUNNER_TEMP/sermon-opus-int8.tar.gz" \
+            https://github.com/cliffordmanasseh/danglish-translator/releases/download/sermon-opus-v1/sermon-opus-int8.tar.gz
+          tar -xzf "$RUNNER_TEMP/sermon-opus-int8.tar.gz" -C release/sermon-opus-model
+
       - name: Bundle models
         run: uv run --no-sync python scripts/bundle_models.py --output desktop/resources/models
 

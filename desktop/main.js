@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, ipcMain, Menu, shell, systemPreferences } = require("electron");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const readline = require("readline");
 const { spawn } = require("child_process");
@@ -88,6 +89,16 @@ function llamaPaths() {
       process.env.DANGLISH_LLAMA_MODEL ||
       (fs.existsSync(bundledModel) ? bundledModel : DEFAULT_LLAMA_MODEL),
   };
+}
+
+function translatorMode() {
+  const forced = process.env.DANGLISH_DESKTOP_TRANSLATOR;
+  if (forced === "opus" || forced === "eurollm") return forced;
+  // Windows and low-memory machines get the 228 MB OPUS edge model.
+  if (process.platform === "win32") return "opus";
+  if (os.totalmem() < 6 * 1024 ** 3) return "opus";
+  const { server, model } = llamaPaths();
+  return fs.existsSync(server) && fs.existsSync(model) ? "eurollm" : "opus";
 }
 
 async function llamaHealthy() {
@@ -272,9 +283,15 @@ function modelPaths(settings) {
 function buildBackendArgs(settings) {
   const models = modelPaths(settings);
   const args = ["talk", "--json"];
+  const mode = translatorMode();
 
-  args.push("--backend", "llama");
-  args.push("--server-url", LLAMA_URL);
+  if (mode === "eurollm") {
+    args.push("--backend", "llama");
+    args.push("--server-url", LLAMA_URL);
+  } else if (fs.existsSync(models.mt)) {
+    args.push("--model-path", models.mt);
+  }
+
   if (models.asr) args.push("--asr-model", models.asr);
   else args.push("--asr-model", settings.asrModel || DEFAULT_ASR_MODEL);
 
@@ -427,11 +444,13 @@ async function startBackend(settings) {
   prepareBackendLog();
   writeBackendLog("app", `=== start ${new Date().toISOString()} ===`);
 
-  const llama = await ensureLlamaServer();
-  if (!llama.ok) {
-    writeBackendLog("app", llama.error);
-    sendStatus("error", llama.error);
-    return { ok: false, error: llama.error };
+  if (translatorMode() === "eurollm") {
+    const llama = await ensureLlamaServer();
+    if (!llama.ok) {
+      writeBackendLog("app", llama.error);
+      sendStatus("error", llama.error);
+      return { ok: false, error: llama.error };
+    }
   }
 
   const args = [...prefix, ...buildBackendArgs(settings)];
@@ -682,6 +701,9 @@ if (!gotLock) {
     ipcMain.handle("contexts:list", async () => runBackendJson(["contexts", "--json"]));
     ipcMain.handle("app:info", async () => ({
       packaged: app.isPackaged,
+      platform: process.platform,
+      broadcast: process.platform !== "win32",
+      translator: translatorMode(),
       voices: bundledVoiceNames(),
     }));
     ipcMain.handle("legal:open", async () => shell.openPath(legalPath()));

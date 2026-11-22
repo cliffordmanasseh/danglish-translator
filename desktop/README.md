@@ -95,6 +95,16 @@ Installers are large (roughly 700 MB–1 GB depending on platform) because the P
 runtime and models are included. `resources/models` and `resources/backend` are generated
 and are not committed.
 
+## Windows and low-memory machines
+
+On Windows, or on any machine with less than 6 GB RAM, the desktop app automatically
+uses the bundled **OPUS-MT sermon edge model** instead of EuroLLM. That model is
+228 MB int8, ~304 MB RSS, and does not need `llama-server`.
+
+The Windows build is produced by the **Desktop builds** workflow. Broadcast is
+Linux-only in this version and is hidden on Windows; translation, captions, and
+tiny-voca speech work normally.
+
 ## Cross-platform builds
 
 Electron can build for the current OS; PyInstaller cannot cross-compile a Python sidecar.
